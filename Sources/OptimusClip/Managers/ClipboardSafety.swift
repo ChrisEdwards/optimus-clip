@@ -1,20 +1,11 @@
 import AppKit
+import OptimusClipCore
 
-/// Types of content that can be on the clipboard.
-public enum ClipboardContentType: Sendable, Equatable {
-    /// Plain text or rich text that can be transformed.
-    case text
-
-    /// Binary content (image, file, PDF) that cannot be transformed.
-    /// The associated value is the UTI type string.
-    case binary(type: String)
-
-    /// Empty clipboard - nothing to process.
-    case empty
-
-    /// Unknown content type - treat as non-processable.
-    case unknown
-}
+// Re-export ClipboardContentType, ClipboardReadResult, and ClipboardReadError from OptimusClipCore
+// so consumers can use them without importing OptimusClipCore directly.
+public typealias ClipboardContentType = OptimusClipCore.ClipboardContentType
+public typealias ClipboardReadResult = OptimusClipCore.ClipboardReadResult
+public typealias ClipboardReadError = OptimusClipCore.ClipboardReadError
 
 /// Provides clipboard content type detection and binary safety checks.
 ///
@@ -223,46 +214,6 @@ public enum ClipboardSafety {
 
         case .unknown:
             return .failure(.unknownContent)
-        }
-    }
-}
-
-// MARK: - Read Result
-
-/// Result of attempting to read text from clipboard.
-public enum ClipboardReadResult: Sendable {
-    /// Successfully read text from clipboard.
-    case success(String)
-
-    /// Failed to read text from clipboard.
-    case failure(ClipboardReadError)
-}
-
-/// Reasons why clipboard text could not be read.
-public enum ClipboardReadError: Sendable, Equatable {
-    /// Clipboard is empty.
-    case empty
-
-    /// Clipboard contains binary content that cannot be transformed.
-    case binaryContent(type: String)
-
-    /// Clipboard has types but no actual text content.
-    case noTextContent
-
-    /// Clipboard content type is unknown/unrecognized.
-    case unknownContent
-
-    /// User-friendly error message.
-    public var message: String {
-        switch self {
-        case .empty:
-            "Clipboard is empty"
-        case let .binaryContent(type):
-            "Clipboard contains \(ClipboardSafety.friendlyName(for: type)) - only text can be transformed"
-        case .noTextContent:
-            "Clipboard doesn't contain text"
-        case .unknownContent:
-            "Clipboard contains unrecognized content"
         }
     }
 }
