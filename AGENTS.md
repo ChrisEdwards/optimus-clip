@@ -365,6 +365,9 @@ Task {
 - **Line length:** 120 characters max
 - Run `npm run format` before committing
 
+#### Formatter/Linter Conflicts
+When swiftformat and swiftlint conflict, **fix in config files** (`.swiftformat`, `.swiftlint.yml`)—never use `// swiftlint:disable` comments.
+
 ### Testing Guidelines
 
 #### Framework
