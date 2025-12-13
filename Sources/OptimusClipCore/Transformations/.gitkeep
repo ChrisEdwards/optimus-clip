@@ -1,0 +1,6 @@
+# Transformations
+#
+# This directory contains transformation implementations:
+# - WhitespaceStrip.swift (oc-j0g.2)
+# - SmartUnwrap.swift (oc-j0g.3)
+# - LLMTransformation.swift (Phase 5)

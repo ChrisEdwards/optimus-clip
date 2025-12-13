@@ -274,9 +274,10 @@ public final class TransformationFlowCoordinator: ObservableObject {
 
     /// Transforms content with timeout protection.
     private func transformWithTimeout(_ input: String) async throws -> String {
+        let timeoutSeconds = Int(self.transformationTimeout)
         let timeoutTask = Task {
             try await Task.sleep(nanoseconds: UInt64(self.transformationTimeout * 1_000_000_000))
-            throw TransformationError.timeout
+            throw TransformationError.timeout(seconds: timeoutSeconds)
         }
 
         let transformTask = Task {

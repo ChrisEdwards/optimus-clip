@@ -14,6 +14,18 @@ import Foundation
 /// - Phase 4: Algorithmic implementations (WhitespaceStripTransformation, UnwrapTransformation)
 /// - Phase 5: LLM implementations (OpenAITransformation, AnthropicTransformation)
 public protocol Transformation: Sendable {
+    /// Unique identifier for this transformation type.
+    ///
+    /// Used for persistence, lookup, and hotkey mapping.
+    /// Convention: lowercase with hyphens (e.g., "whitespace-strip", "smart-unwrap")
+    var id: String { get }
+
+    /// Human-readable name for display in UI.
+    ///
+    /// Shown in menus, settings, and status messages.
+    /// Example: "Strip Whitespace", "Smart Unwrap"
+    var displayName: String { get }
+
     /// Transform the input text according to this transformation's logic.
     ///
     /// - Parameter input: The text to transform (clipboard content)
@@ -23,12 +35,12 @@ public protocol Transformation: Sendable {
 }
 
 /// Errors that can occur during transformation.
-public enum TransformationError: Error, Sendable {
+public enum TransformationError: Error, Sendable, LocalizedError {
     /// Input is empty or whitespace-only
     case emptyInput
 
     /// Transformation timed out (LLM calls)
-    case timeout
+    case timeout(seconds: Int)
 
     /// Network error (LLM API unreachable)
     case networkError(String)
@@ -38,6 +50,35 @@ public enum TransformationError: Error, Sendable {
 
     /// Generic processing error
     case processingError(String)
+
+    /// Rate limited by API provider
+    case rateLimited(retryAfter: TimeInterval?)
+
+    /// Content exceeds size limit
+    case contentTooLarge(bytes: Int, limit: Int)
+
+    /// User-friendly error description for display.
+    public var errorDescription: String? {
+        switch self {
+        case .emptyInput:
+            return "No text to transform"
+        case let .timeout(seconds):
+            return "Transformation timed out after \(seconds) seconds"
+        case let .networkError(message):
+            return "Network error: \(message)"
+        case .authenticationError:
+            return "Invalid API key or authentication failed"
+        case let .processingError(message):
+            return "Processing error: \(message)"
+        case let .rateLimited(retryAfter):
+            if let seconds = retryAfter {
+                return "Rate limited. Try again in \(Int(seconds)) seconds"
+            }
+            return "Rate limited. Please wait and try again"
+        case let .contentTooLarge(bytes, limit):
+            return "Content too large (\(bytes) bytes, limit \(limit))"
+        }
+    }
 }
 
 // MARK: - Placeholder Implementation
@@ -51,6 +92,9 @@ public enum TransformationError: Error, Sendable {
 ///
 /// Phase 4 will add real algorithmic transformations.
 public struct IdentityTransformation: Transformation {
+    public let id = "identity"
+    public let displayName = "Identity (No Change)"
+
     public init() {}
 
     public func transform(_ input: String) async throws -> String {

@@ -325,12 +325,12 @@ struct TransformationProtocolPhase2Tests {
 
 @Suite("TransformationError Phase 2 Tests")
 struct TransformationErrorPhase2Tests {
-    @Test("Timeout error exists")
+    @Test("Timeout error exists with seconds")
     func timeoutErrorExists() {
-        let error = TransformationError.timeout
+        let error = TransformationError.timeout(seconds: 30)
         // Verify it can be created and pattern matched
-        if case .timeout = error {
-            // Expected
+        if case let .timeout(seconds) = error {
+            #expect(seconds == 30)
         } else {
             Issue.record("Should be timeout case")
         }
@@ -381,12 +381,14 @@ struct TransformationErrorPhase2Tests {
         // Verify we can create all error cases
         let errors: [TransformationError] = [
             .emptyInput,
-            .timeout,
+            .timeout(seconds: 30),
             .networkError("test"),
             .authenticationError,
-            .processingError("test")
+            .processingError("test"),
+            .rateLimited(retryAfter: 60),
+            .contentTooLarge(bytes: 1000, limit: 500)
         ]
-        #expect(errors.count == 5)
+        #expect(errors.count == 7)
     }
 }
 

@@ -1,0 +1,5 @@
+# Detection
+#
+# This directory contains content analysis logic:
+# - CodeDetector.swift (oc-j0g.4)
+# - ContentAnalyzer.swift (future)

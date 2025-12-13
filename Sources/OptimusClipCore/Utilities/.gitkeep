@@ -1,0 +1,5 @@
+# Utilities
+#
+# This directory contains shared helper code:
+# - StringExtensions.swift
+# - TextProcessing.swift
