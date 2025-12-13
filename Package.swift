@@ -12,7 +12,7 @@ let package = Package(
     // - Swift 6 concurrency improvements
     // - Latest SF Symbols
     platforms: [
-        .macOS(.v15)
+        .macOS(.v15),
     ],
 
     // PRODUCTS
@@ -21,7 +21,7 @@ let package = Package(
         .executable(
             name: "OptimusClip",
             targets: ["OptimusClip"]
-        )
+        ),
     ],
 
     // DEPENDENCIES
@@ -63,7 +63,7 @@ let package = Package(
             // Swift 6 concurrency checking
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
-                .enableExperimentalFeature("AccessLevelOnImport")
+                .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
 
@@ -78,7 +78,7 @@ let package = Package(
             // Swift 6 concurrency checking
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
-                .enableExperimentalFeature("AccessLevelOnImport")
+                .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
 
@@ -89,15 +89,15 @@ let package = Package(
             dependencies: [
                 // Tests only depend on Core, not the executable
                 // This makes tests fast and isolated
-                "OptimusClipCore"
+                "OptimusClipCore",
             ],
             path: "Tests/OptimusClipTests",
 
             // Swift 6 concurrency checking
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency"),
-                .enableExperimentalFeature("AccessLevelOnImport")
+                .enableExperimentalFeature("AccessLevelOnImport"),
             ]
-        )
+        ),
     ]
 )
