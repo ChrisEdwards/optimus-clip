@@ -1,4 +1,5 @@
 import AppKit
+import KeyboardShortcuts
 import OSLog
 import ServiceManagement
 import SwiftUI
@@ -21,6 +22,19 @@ struct GeneralTabView: View {
 
     var body: some View {
         Form {
+            Section("Global Shortcuts") {
+                HStack {
+                    Text("Quick Fix")
+                    Spacer()
+                    KeyboardShortcuts.Recorder(for: .quickFix)
+                }
+                HStack {
+                    Text("Smart Fix")
+                    Spacer()
+                    KeyboardShortcuts.Recorder(for: .smartFix)
+                }
+            }
+
             Section("Startup") {
                 LaunchAtLoginToggle(
                     isEnabled: self.$launchAtLogin,

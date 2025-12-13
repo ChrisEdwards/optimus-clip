@@ -46,4 +46,7 @@ sed -e "s/\$(MARKETING_VERSION)/${MARKETING_VERSION}/g" \
 # Copy icon if exists
 [[ -f "${ROOT_DIR}/Icon.icns" ]] && cp "${ROOT_DIR}/Icon.icns" "${RESOURCES}/AppIcon.icns"
 
+# Ad-hoc sign the app for consistent identity (prevents accessibility permission reset on rebuild)
+codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null || true
+
 echo "✓ Packaged ${APP_BUNDLE} (${MODE}, v${MARKETING_VERSION} build ${BUILD_NUMBER})"

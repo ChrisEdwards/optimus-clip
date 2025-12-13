@@ -43,12 +43,6 @@ struct OptimusClipApp: App {
         Settings {
             SettingsView()
         }
-        // Remove default Edit menu to prevent Cmd+Option+V conflict with our global hotkey
-        .commands {
-            CommandGroup(replacing: .pasteboard) {}
-            CommandGroup(replacing: .undoRedo) {}
-            CommandGroup(replacing: .textEditing) {}
-        }
     }
 
     /// Accessibility label describing the current icon state.
