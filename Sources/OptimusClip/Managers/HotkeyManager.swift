@@ -9,7 +9,6 @@ import OptimusClipCore
 /// - Registering keyboard shortcut handlers with KeyboardShortcuts package
 /// - Routing hotkey events to the transformation flow coordinator
 /// - Managing transformation execution lifecycle
-/// - Coordinating with MenuBarStateManager for visual feedback (pulse animation)
 /// - Preventing duplicate execution during rapid key presses
 ///
 /// ## Usage
@@ -38,10 +37,6 @@ final class HotkeyManager: ObservableObject {
     /// Reference to the transformation flow coordinator.
     /// Defaults to the shared instance but can be injected for testing.
     var flowCoordinator: TransformationFlowCoordinator = .shared
-
-    /// Reference to the menu bar state manager for visual feedback.
-    /// Set by the app during initialization.
-    weak var menuBarStateManager: MenuBarStateManager?
 
     // MARK: - State
 
@@ -222,11 +217,9 @@ final class HotkeyManager: ObservableObject {
         }
 
         self.isProcessing = true
-        self.menuBarStateManager?.startProcessing()
 
         defer {
             self.isProcessing = false
-            self.menuBarStateManager?.stopProcessing()
             // Clear pipeline after execution
             self.flowCoordinator.pipeline = nil
         }
@@ -265,11 +258,9 @@ final class HotkeyManager: ObservableObject {
         }
 
         self.isProcessing = true
-        self.menuBarStateManager?.startProcessing()
 
         defer {
             self.isProcessing = false
-            self.menuBarStateManager?.stopProcessing()
             // Clear pipeline after execution
             self.flowCoordinator.pipeline = nil
         }

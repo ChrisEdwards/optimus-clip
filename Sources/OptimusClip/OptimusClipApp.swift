@@ -24,13 +24,8 @@ struct OptimusClipApp: App {
         MenuBarExtra {
             MenuBarMenuContent()
         } label: {
-            // Dynamic icon with state-based opacity and pulse animation
+            // Dynamic icon with state-based opacity
             Image(systemName: "clipboard.fill")
-                .symbolEffect(
-                    .pulse.byLayer,
-                    options: .repeating,
-                    isActive: self.menuBarState.iconState == .processing
-                )
                 .opacity(self.menuBarState.iconOpacity)
                 .accessibilityLabel(self.accessibilityLabel)
         }
@@ -52,8 +47,6 @@ struct OptimusClipApp: App {
             "Optimus Clip"
         case .disabled:
             "Optimus Clip (Disabled)"
-        case .processing:
-            "Optimus Clip (Processing)"
         }
     }
 }

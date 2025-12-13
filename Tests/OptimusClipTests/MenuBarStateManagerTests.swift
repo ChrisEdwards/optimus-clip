@@ -10,29 +10,7 @@ struct IconStateMachineTests {
     func initialState() {
         let machine = IconStateMachine()
         #expect(machine.state == .idle)
-        #expect(machine.pulseID == 0)
         #expect(machine.iconOpacity == 1.0)
-        #expect(!machine.isProcessing)
-    }
-
-    @Test("startProcessing transitions to processing and increments pulseID")
-    func startProcessing() {
-        var machine = IconStateMachine()
-        let result = machine.startProcessing()
-        #expect(result == true)
-        #expect(machine.state == .processing)
-        #expect(machine.pulseID == 1)
-        #expect(machine.isProcessing)
-    }
-
-    @Test("stopProcessing returns to idle")
-    func stopProcessing() {
-        var machine = IconStateMachine()
-        machine.startProcessing()
-        let result = machine.stopProcessing()
-        #expect(result == true)
-        #expect(machine.state == .idle)
-        #expect(!machine.isProcessing)
     }
 
     @Test("setDisabled dims icon opacity")
@@ -52,46 +30,23 @@ struct IconStateMachineTests {
         #expect(machine.iconOpacity == 1.0)
     }
 
-    @Test("startProcessing ignored when disabled")
-    func noProcessingWhenDisabled() {
+    @Test("setDisabled toggles correctly")
+    func toggleDisabled() {
         var machine = IconStateMachine()
-        machine.setDisabled(true)
-        let result = machine.startProcessing()
-        #expect(result == false)
-        #expect(machine.state == .disabled) // Still disabled
-        #expect(machine.pulseID == 0) // No pulse triggered
-    }
 
-    @Test("pulseID increments on each startProcessing")
-    func multiplePulses() {
-        var machine = IconStateMachine()
-        machine.startProcessing()
-        machine.stopProcessing()
-        machine.startProcessing()
-        #expect(machine.pulseID == 2)
-    }
-
-    @Test("stopProcessing only works when processing")
-    func stopProcessingGuard() {
-        var machine = IconStateMachine()
-        // stopProcessing from idle should be a no-op
-        let result1 = machine.stopProcessing()
-        #expect(result1 == false)
+        // Start idle
         #expect(machine.state == .idle)
 
-        // stopProcessing from disabled should be a no-op
+        // Disable
         machine.setDisabled(true)
-        let result2 = machine.stopProcessing()
-        #expect(result2 == false)
         #expect(machine.state == .disabled)
-    }
 
-    @Test("setDisabled(false) does not interrupt processing")
-    func setDisabledFalseWhileProcessing() {
-        var machine = IconStateMachine()
-        machine.startProcessing()
-        machine.setDisabled(false) // Should not change state
-        #expect(machine.state == .processing)
-        #expect(machine.isProcessing)
+        // Re-enable
+        machine.setDisabled(false)
+        #expect(machine.state == .idle)
+
+        // Disable again
+        machine.setDisabled(true)
+        #expect(machine.state == .disabled)
     }
 }
