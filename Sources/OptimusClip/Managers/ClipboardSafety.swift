@@ -59,7 +59,7 @@ public enum ClipboardSafety {
 
         // Documents
         .pdf,
-        NSPasteboard.PasteboardType("com.adobe.pdf"),
+        NSPasteboard.PasteboardType("com.adobe.pdf")
     ]
 
     /// Pasteboard types that indicate processable text content.
@@ -70,7 +70,7 @@ public enum ClipboardSafety {
         NSPasteboard.PasteboardType("public.utf8-plain-text"),
         NSPasteboard.PasteboardType("public.utf16-plain-text"),
         NSPasteboard.PasteboardType("public.utf16-external-plain-text"),
-        NSPasteboard.PasteboardType("public.text"),
+        NSPasteboard.PasteboardType("public.text")
     ]
 
     // MARK: - Detection
@@ -89,17 +89,13 @@ public enum ClipboardSafety {
         }
 
         // Check for binary types FIRST (they should block processing)
-        for type in types {
-            if self.binaryTypes.contains(type) {
-                return .binary(type: type.rawValue)
-            }
+        if let binaryType = types.first(where: { self.binaryTypes.contains($0) }) {
+            return .binary(type: binaryType.rawValue)
         }
 
         // Check for text types
-        for type in types {
-            if self.textTypes.contains(type) {
-                return .text
-            }
+        if types.contains(where: { self.textTypes.contains($0) }) {
+            return .text
         }
 
         return .unknown
@@ -127,39 +123,40 @@ public enum ClipboardSafety {
 
     // MARK: - User Feedback
 
+    /// Mapping of UTI types to human-readable descriptions.
+    private nonisolated(unsafe) static let typeDescriptions: [String: String] = {
+        var map: [String: String] = [
+            // Images
+            "public.png": "an image (PNG)",
+            "public.jpeg": "an image (JPEG)",
+            "public.jpg": "an image (JPEG)",
+            "public.tiff": "an image (TIFF)",
+            "public.heic": "an image (HEIC)",
+            "public.gif": "an image (GIF)",
+            "public.bmp": "an image (BMP)",
+            "public.ico": "an icon",
+            "public.svg-image": "an image (SVG)",
+            // Files
+            "public.file-url": "a file",
+            "com.apple.finder.node": "a file",
+            "NSFilenamesPboardType": "a file",
+            // Documents
+            "com.adobe.pdf": "a PDF document"
+        ]
+        // Add NSPasteboard type raw values
+        map[NSPasteboard.PasteboardType.png.rawValue] = "an image (PNG)"
+        map[NSPasteboard.PasteboardType.tiff.rawValue] = "an image (TIFF)"
+        map[NSPasteboard.PasteboardType.fileURL.rawValue] = "a file"
+        map[NSPasteboard.PasteboardType.pdf.rawValue] = "a PDF document"
+        return map
+    }()
+
     /// Returns a user-friendly description of a binary content type.
     ///
     /// - Parameter type: The UTI type string.
     /// - Returns: A human-readable description suitable for error messages.
     public nonisolated static func friendlyName(for type: String) -> String {
-        switch type {
-        // Images
-        case "public.png", NSPasteboard.PasteboardType.png.rawValue:
-            "an image (PNG)"
-        case "public.jpeg", "public.jpg":
-            "an image (JPEG)"
-        case "public.tiff", NSPasteboard.PasteboardType.tiff.rawValue:
-            "an image (TIFF)"
-        case "public.heic":
-            "an image (HEIC)"
-        case "public.gif":
-            "an image (GIF)"
-        case "public.bmp":
-            "an image (BMP)"
-        case "public.ico":
-            "an icon"
-        case "public.svg-image":
-            "an image (SVG)"
-        // Files
-        case "public.file-url", NSPasteboard.PasteboardType.fileURL.rawValue,
-             "com.apple.finder.node", "NSFilenamesPboardType":
-            "a file"
-        // Documents
-        case "com.adobe.pdf", NSPasteboard.PasteboardType.pdf.rawValue:
-            "a PDF document"
-        default:
-            "non-text content"
-        }
+        self.typeDescriptions[type] ?? "non-text content"
     }
 
     /// Returns a description of the current clipboard binary content.
@@ -170,13 +167,10 @@ public enum ClipboardSafety {
             return nil
         }
 
-        for type in types {
-            if self.binaryTypes.contains(type) {
-                return self.friendlyName(for: type.rawValue)
-            }
+        guard let binaryType = types.first(where: { self.binaryTypes.contains($0) }) else {
+            return nil
         }
-
-        return nil
+        return self.friendlyName(for: binaryType.rawValue)
     }
 
     // MARK: - Safe Reading

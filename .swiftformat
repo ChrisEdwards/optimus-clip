@@ -30,5 +30,11 @@
 --allman false
 --stripunusedargs always
 
+# Disable rules that conflict with swiftlint
+--disable wrapMultilineStatementBraces
+
+# Trailing commas (match swiftlint)
+--trailingCommas never
+
 # Comments
 --header strip

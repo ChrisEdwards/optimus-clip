@@ -207,24 +207,21 @@ public final class ClipboardMonitor {
 
         // Strategy 2: Read objects for NSString class
         if let objects = pasteboard.readObjects(forClasses: [NSString.self], options: nil),
-           let text = objects.first as? String, !text.isEmpty
-        {
+           let text = objects.first as? String, !text.isEmpty {
             return text
         }
 
         // Strategy 3: UTF-16 external plain text (some apps use this)
         let utf16Type = NSPasteboard.PasteboardType("public.utf16-external-plain-text")
         if let data = pasteboard.data(forType: utf16Type),
-           let text = String(data: data, encoding: .utf16), !text.isEmpty
-        {
+           let text = String(data: data, encoding: .utf16), !text.isEmpty {
             return text
         }
 
         // Strategy 4: Generic public.text (last resort)
         let textType = NSPasteboard.PasteboardType("public.text")
         if let data = pasteboard.data(forType: textType),
-           let text = String(data: data, encoding: .utf8), !text.isEmpty
-        {
+           let text = String(data: data, encoding: .utf8), !text.isEmpty {
             return text
         }
 

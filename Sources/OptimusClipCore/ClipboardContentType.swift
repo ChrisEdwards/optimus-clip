@@ -99,8 +99,6 @@ extension ClipboardContentType {
 
     // MARK: - Type Constants
 
-    // swiftlint:disable trailing_comma
-
     /// Known image UTI types.
     public static let imageTypes: Set<String> = [
         "public.png",
@@ -113,7 +111,7 @@ extension ClipboardContentType {
         "public.webp",
         "public.ico",
         "public.svg-image",
-        "com.apple.icns",
+        "com.apple.icns"
     ]
 
     /// Known file URL UTI types.
@@ -121,30 +119,29 @@ extension ClipboardContentType {
         "public.file-url",
         "com.apple.finder.node",
         "public.url",
-        "NSFilenamesPboardType",
+        "NSFilenamesPboardType"
     ]
 
     /// Known archive UTI types.
     public static let archiveTypes: Set<String> = [
         "public.zip-archive",
         "org.gnu.gnu-tar-archive",
-        "public.archive",
+        "public.archive"
     ]
 
     /// Known audio UTI types.
     public static let audioTypes: Set<String> = [
         "public.audio",
         "public.mp3",
-        "com.apple.m4a-audio",
+        "com.apple.m4a-audio"
     ]
 
     /// Known video UTI types.
     public static let videoTypes: Set<String> = [
         "public.movie",
         "public.video",
-        "com.apple.quicktime-movie",
+        "com.apple.quicktime-movie"
     ]
-    // swiftlint:enable trailing_comma
 }
 
 // MARK: - CustomStringConvertible
