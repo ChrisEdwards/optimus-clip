@@ -47,7 +47,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView(selection: self.$selectedTab) {
-            TransformationsPlaceholderView()
+            TransformationsTabView()
                 .tabItem {
                     Label(SettingsTab.transformations.label, systemImage: SettingsTab.transformations.iconName)
                 }
@@ -73,29 +73,6 @@ struct SettingsView: View {
         }
         .frame(width: 450, height: 500)
         .fixedSize()
-    }
-}
-
-// MARK: - Placeholder Views
-
-/// Placeholder for Transformations tab (oc-4tw.4).
-struct TransformationsPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-
-            Text("Transformations")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Create and edit clipboard transformation rules.\nImplemented in oc-4tw.4.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
