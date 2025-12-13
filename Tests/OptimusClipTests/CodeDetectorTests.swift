@@ -296,7 +296,8 @@ struct CodeDetectorTests {
     @Test("Skip threshold works")
     func skipThreshold() {
         // Code with many signals: braces, keywords, syntax, structure
-        let code = "public class Foo {\n    private func bar() -> Int {\n        let x = 1;\n        return x;\n    }\n}"
+        let code = "public class Foo {\n    private func bar() -> Int {\n"
+            + "        let x = 1;\n        return x;\n    }\n}"
         let shouldSkip = self.detector.shouldSkipTransformation(code)
         #expect(shouldSkip, "High confidence code should be skipped")
     }
@@ -335,7 +336,8 @@ struct CodeDetectorTests {
     @Test("JSON detected as code")
     func jSONDetected() {
         // JSON with real indentation
-        let json = "{\n    \"name\": \"test\",\n    \"values\": [1, 2, 3],\n    \"nested\": {\n        \"key\": \"value\"\n    }\n}"
+        let json = "{\n    \"name\": \"test\",\n    \"values\": [1, 2, 3],\n"
+            + "    \"nested\": {\n        \"key\": \"value\"\n    }\n}"
         let confidence = self.detector.codeConfidence(json)
         #expect(confidence > 0.4, "JSON should be detected as code-like")
     }

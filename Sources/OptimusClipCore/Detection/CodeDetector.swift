@@ -145,13 +145,7 @@ public struct CodeDetector: Sendable {
         let lowercaseText = text.lowercased()
 
         // Use word boundary matching to avoid false positives
-        var keywordMatches = 0
-        for keyword in codeKeywords {
-            // Match keyword with word boundaries (not part of larger word)
-            if self.matchesAsWord(keyword, in: lowercaseText) {
-                keywordMatches += 1
-            }
-        }
+        let keywordMatches = codeKeywords.count { self.matchesAsWord($0, in: lowercaseText) }
 
         if keywordMatches >= 5 { return 1.0 }
         if keywordMatches >= 3 { return 0.7 }
