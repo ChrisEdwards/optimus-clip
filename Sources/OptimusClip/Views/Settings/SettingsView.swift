@@ -71,7 +71,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.permissions)
         }
-        .frame(width: 450, height: 500)
+        .frame(width: 650, height: 500)
         .fixedSize()
     }
 }

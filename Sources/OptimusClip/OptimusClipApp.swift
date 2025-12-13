@@ -22,17 +22,7 @@ struct OptimusClipApp: App {
     var body: some Scene {
         // Primary menu bar scene
         MenuBarExtra {
-            Button("Settings...") {
-                self.openSettings()
-            }
-            .keyboardShortcut(",", modifiers: .command)
-
-            Divider()
-
-            Button("Quit Optimus Clip") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: .command)
+            MenuBarMenuContent()
         } label: {
             // Dynamic icon with state-based opacity and pulse animation
             Image(systemName: "clipboard.fill")
@@ -66,20 +56,30 @@ struct OptimusClipApp: App {
             "Optimus Clip (Processing)"
         }
     }
+}
 
-    // MARK: - Menu Actions
+// MARK: - Menu Bar Menu Content
 
-    /// Opens the Settings window and brings it to the foreground.
-    ///
-    /// Uses the native macOS settings window mechanism which provides:
-    /// - Automatic Cmd+, shortcut handling
-    /// - Single window enforcement (only one settings window can be open)
-    /// - Window state restoration across app launches
-    private func openSettings() {
-        // Use the native settings window selector
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+/// Content view for the menu bar dropdown menu.
+///
+/// Extracted to a separate View to enable use of `@Environment(\.openSettings)`.
+private struct MenuBarMenuContent: View {
+    /// Environment action to open the Settings window.
+    @Environment(\.openSettings) private var openSettings
 
-        // Bring app to foreground since we're in accessory mode (no Dock icon)
-        NSApp.activate(ignoringOtherApps: true)
+    var body: some View {
+        Button("Settings...") {
+            // Bring app to foreground since we're in accessory mode (no Dock icon)
+            NSApp.activate(ignoringOtherApps: true)
+            self.openSettings()
+        }
+        .keyboardShortcut(",", modifiers: .command)
+
+        Divider()
+
+        Button("Quit Optimus Clip") {
+            NSApplication.shared.terminate(nil)
+        }
+        .keyboardShortcut("q", modifiers: .command)
     }
 }
