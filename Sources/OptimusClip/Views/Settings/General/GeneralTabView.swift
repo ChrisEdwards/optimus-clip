@@ -1,6 +1,9 @@
 import AppKit
+import OSLog
 import ServiceManagement
 import SwiftUI
+
+private let logger = Logger(subsystem: "com.optimusclip", category: "GeneralSettings")
 
 /// General settings tab containing app-wide preferences.
 ///
@@ -119,8 +122,7 @@ struct LaunchAtLoginToggle: View {
                 self.status = SMAppService.mainApp.status
             }
         } catch {
-            print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
-
+            logger.error("Failed to \(enabled ? "enable" : "disable") launch at login: \(error.localizedDescription)")
             // Revert toggle on failure
             self.isEnabled = !enabled
         }
