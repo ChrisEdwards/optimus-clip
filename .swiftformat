@@ -1,0 +1,34 @@
+# SwiftFormat Configuration - OptimusClip
+# Version: 0.55.0+
+# Swift Version: 6.0
+
+--swiftversion 6.0
+
+# Indentation
+--indent 4
+--tabwidth 4
+--maxwidth 120
+--wraparguments before-first
+--wrapcollections before-first
+
+# Self (REQUIRED for Swift 6 concurrency)
+--self insert
+--selfrequired self,memberself
+
+# Spacing
+--trimwhitespace always
+
+# Ordering
+--importgrouping testable-bottom
+--extensionacl on-declarations
+
+# Control Flow
+--elseposition same-line
+--guardelse same-line
+
+# Braces
+--allman false
+--stripunusedargs always
+
+# Comments
+--header strip

@@ -1,0 +1,88 @@
+# SwiftLint Configuration - OptimusClip
+# Version: 0.55.0+
+
+disabled_rules:
+  - trailing_whitespace  # SwiftFormat handles this
+  - todo                 # We use bd (beads) for task tracking
+  - identifier_name      # Allow short names in closures
+
+opt_in_rules:
+  # Analyzer rules (require compilation)
+  - unused_declaration
+  - unused_import
+
+  # Code quality
+  - explicit_init
+  - explicit_self
+  - fatal_error_message
+  - first_where
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - multiline_parameters
+  - overridden_super_call
+  - private_outlet
+  - redundant_nil_coalescing
+  - sorted_first_last
+  - unneeded_parentheses_in_closure_argument
+  - yoda_condition
+
+analyzer_rules:
+  - unused_declaration
+  - unused_import
+
+included:
+  - Sources
+  - Tests
+
+excluded:
+  - .build
+  - .swiftpm
+  - Scripts
+
+# Rule Customization
+line_length:
+  warning: 120
+  error: 150
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 500
+  error: 1500
+
+function_body_length:
+  warning: 40
+  error: 100
+
+type_body_length:
+  warning: 300
+  error: 500
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+force_cast:
+  severity: warning
+
+force_try:
+  severity: warning
+
+force_unwrapping:
+  severity: error
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 100
+  excluded:
+    - i
+    - id
+    - x
+    - y
+    - v
+
+reporter: xcode
