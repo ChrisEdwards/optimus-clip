@@ -281,28 +281,40 @@ optimus-clip/
 
 ### Build Commands
 
-All commands use npm/pnpm as the interface:
+Use make targets for all checks and tests (quiet output, ~99% token savings for AI agents):
 
 ```bash
-# Development workflow (build + test + package + run)
-npm run start
+make check         # Run format check and lint (quiet output)
+make test          # Run unit tests (quiet output)
+make test-parallel # Run tests in parallel (quiet output)
+make check-test    # Run both checks and tests
+make format        # Auto-format code with swiftformat
+make lint          # Run swiftlint with auto-fix
+make build         # Build the project (debug)
+make build-release # Build the project (release)
+make package       # Package app (debug build)
+make package-release # Package app (release build)
+make clean         # Remove build artifacts
+make start         # Compile and run the app
+make stop          # Stop running app instances
 
-# Individual operations
-npm run build              # swift build (debug)
-npm run build:release      # swift build -c release
-npm run test               # swift test
-npm run format             # swiftformat . (auto-fix)
-npm run lint               # swiftlint lint --fix (auto-fix)
-npm run check              # swiftformat --lint + swiftlint (no changes, fail if issues)
-npm run package            # ./Scripts/package_app.sh debug
-npm run package:release    # ./Scripts/package_app.sh release
-npm run stop               # Kill running OptimusClip instances
+# Verbose output when debugging failures
+make test VERBOSE=1
+make check VERBOSE=1
+```
+
+**Direct commands** (verbose output, use make targets above for quiet output):
+```bash
+swift build              # Build (debug)
+swift test               # Run tests
+swiftformat .            # Format code
+swiftlint lint           # Lint code
 ```
 
 **Before every commit:**
 ```bash
-npm run check    # Must pass (no formatting/linting issues)
-npm run test     # Must pass (all tests green)
+make check    # Must pass (no formatting/linting issues)
+make test     # Must pass (all tests green)
 ```
 
 **Version management:**
