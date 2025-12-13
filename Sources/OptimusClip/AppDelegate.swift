@@ -85,11 +85,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Loads saved transformations from UserDefaults.
+    ///
+    /// Returns default transformations on first launch so they get registered with HotkeyManager.
     private func loadSavedTransformations() -> [TransformationConfig] {
         guard let data = UserDefaults.standard.data(forKey: "transformations_data"),
               !data.isEmpty,
               let transformations = try? JSONDecoder().decode([TransformationConfig].self, from: data) else {
-            return []
+            return TransformationConfig.defaultTransformations
         }
         return transformations
     }

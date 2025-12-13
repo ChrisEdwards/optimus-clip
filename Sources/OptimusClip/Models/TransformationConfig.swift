@@ -110,17 +110,31 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
 // MARK: - Default Transformations
 
 extension TransformationConfig {
+    // MARK: - Stable UUIDs for Defaults
+
+    /// Stable UUID for the default "Quick Fix" transformation.
+    ///
+    /// Using a fixed UUID ensures the KeyboardShortcuts storage persists
+    /// across app restarts, since shortcuts are keyed by transformation UUID.
+    private static let quickFixDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
+
+    /// Stable UUID for the default "Smart Fix" transformation.
+    private static let smartFixDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
+
     /// Default transformations provided on first launch.
     ///
     /// These serve as examples and can be modified or deleted by the user.
+    /// Uses stable UUIDs so recorded shortcuts persist across app restarts.
     static let defaultTransformations: [TransformationConfig] = [
         TransformationConfig(
+            id: quickFixDefaultID,
             name: "Quick Fix",
             type: .algorithmic,
             isEnabled: true,
             systemPrompt: ""
         ),
         TransformationConfig(
+            id: smartFixDefaultID,
             name: "Smart Fix",
             type: .llm,
             isEnabled: false,

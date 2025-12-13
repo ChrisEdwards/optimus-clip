@@ -80,29 +80,25 @@ struct AccessibilityCalloutView: View {
             }
             .padding(.vertical, 4)
 
-            // Action buttons
-            HStack(spacing: 12) {
-                Button {
-                    self.permissionManager.requestPermission()
-                } label: {
-                    Label("Grant Accessibility", systemImage: "lock.open")
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.regular)
-
-                Button {
-                    self.permissionManager.openSystemSettings()
-                } label: {
-                    Label("Open System Settings", systemImage: "gear")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+            // Action button - single clear action
+            Button {
+                self.permissionManager.openSystemSettings()
+            } label: {
+                Label("Open System Settings", systemImage: "gear")
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
 
             // Help text
-            Text("After granting permission, this message will disappear automatically.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("After granting permission, this message will disappear automatically.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("If OptimusClip isn't in the list, click '+' and select OptimusClip.app from this folder.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding()
         .background(

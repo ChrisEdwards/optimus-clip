@@ -75,8 +75,8 @@ public final class AccessibilityPermissionManager: ObservableObject {
 
     // MARK: - Private State
 
-    /// Timer for polling permission state changes.
-    private var pollTimer: Timer?
+    /// Task for polling permission state changes.
+    private var pollTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -90,11 +90,7 @@ public final class AccessibilityPermissionManager: ObservableObject {
     }
 
     deinit {
-        // Clean up timer on deallocation
-        MainActor.assumeIsolated {
-            self.pollTimer?.invalidate()
-            self.pollTimer = nil
-        }
+        self.pollTask?.cancel()
     }
 
     // MARK: - Public Methods
@@ -107,22 +103,18 @@ public final class AccessibilityPermissionManager: ObservableObject {
         self.isGranted = AXIsProcessTrusted()
     }
 
-    /// Requests accessibility permission by showing the system dialog.
+    /// Requests accessibility permission by opening System Settings directly.
     ///
-    /// This triggers macOS to show the standard accessibility permission dialog.
-    /// The dialog explains that the app wants to control the computer.
+    /// We skip the system dialog (AXIsProcessTrustedWithOptions) because:
+    /// 1. It just asks the user to open System Settings anyway
+    /// 2. It's often suppressed after being dismissed once
+    /// 3. The user must manually toggle the permission in Settings regardless
     ///
-    /// - Note: Safe to call multiple times. The dialog will only show if permission
-    ///   is not already granted.
+    /// This provides a cleaner UX - one action that takes the user directly
+    /// where they need to go.
     public func requestPermission() {
         self.hasBeenRequested = true
-
-        // Options dictionary requesting the system prompt be shown
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
-
-        // Check immediately after request in case permission was already granted
-        self.checkPermission()
+        self.openSystemSettings()
     }
 
     /// Opens System Settings directly to the Accessibility privacy pane.
@@ -142,8 +134,8 @@ public final class AccessibilityPermissionManager: ObservableObject {
     ///
     /// Call this when the app is terminating or when polling is no longer needed.
     public func stopPolling() {
-        self.pollTimer?.invalidate()
-        self.pollTimer = nil
+        self.pollTask?.cancel()
+        self.pollTask = nil
     }
 
     // MARK: - Private Methods
@@ -154,12 +146,15 @@ public final class AccessibilityPermissionManager: ObservableObject {
     /// Polling is the only reliable way to detect when the user grants permission
     /// via System Settings.
     private func startPolling() {
-        // Invalidate any existing timer
-        self.pollTimer?.invalidate()
-
-        self.pollTimer = Timer.scheduledTimer(withTimeInterval: self.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkPermission()
+        self.pollTask?.cancel()
+        self.pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(self?.pollInterval ?? 2.0) * 1_000_000_000)
+                guard let self, !Task.isCancelled else { break }
+                let newValue = AXIsProcessTrusted()
+                if newValue != self.isGranted {
+                    self.isGranted = newValue
+                }
             }
         }
     }
