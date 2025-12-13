@@ -1,4 +1,5 @@
 import MenuBarExtraAccess
+import OptimusClipCore
 import SwiftUI
 
 /// Main entry point for Optimus Clip.
@@ -15,10 +16,9 @@ struct OptimusClipApp: App {
     @StateObject private var menuBarState = MenuBarStateManager()
 
     var body: some Scene {
-        MenuBarExtra("Optimus Clip", systemImage: "clipboard.fill") {
-            // Placeholder menu content - will be replaced in oc-uzt.4
+        MenuBarExtra {
             Button("Settings...") {
-                // Phase 3: Open settings window
+                self.showSettingsPlaceholder()
             }
             .keyboardShortcut(",", modifiers: .command)
 
@@ -28,10 +28,44 @@ struct OptimusClipApp: App {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)
+        } label: {
+            // Dynamic icon with state-based opacity and pulse animation
+            Image(systemName: "clipboard.fill")
+                .symbolEffect(
+                    .pulse.byLayer,
+                    options: .repeating,
+                    isActive: self.menuBarState.iconState == .processing
+                )
+                .opacity(self.menuBarState.iconOpacity)
+                .accessibilityLabel(self.accessibilityLabel)
         }
         .menuBarExtraStyle(.menu)
         .menuBarExtraAccess(isPresented: self.$menuBarState.isMenuPresented) { statusItem in
             self.menuBarState.configureStatusItem(statusItem)
         }
+    }
+
+    /// Accessibility label describing the current icon state.
+    private var accessibilityLabel: String {
+        switch self.menuBarState.iconState {
+        case .idle:
+            "Optimus Clip"
+        case .disabled:
+            "Optimus Clip (Disabled)"
+        case .processing:
+            "Optimus Clip (Processing)"
+        }
+    }
+
+    // MARK: - Menu Actions
+
+    /// Shows a placeholder alert for Settings until Phase 2 implements the Settings window.
+    private func showSettingsPlaceholder() {
+        let alert = NSAlert()
+        alert.messageText = "Settings"
+        alert.informativeText = "Settings window will be implemented in Phase 2."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
