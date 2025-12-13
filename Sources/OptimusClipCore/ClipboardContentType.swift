@@ -99,8 +99,9 @@ extension ClipboardContentType {
 
     // MARK: - Type Constants
 
-    /// Known image UTI types.
     // swiftlint:disable trailing_comma
+
+    /// Known image UTI types.
     public static let imageTypes: Set<String> = [
         "public.png",
         "public.jpeg",
