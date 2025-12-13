@@ -59,7 +59,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.providers)
 
-            GeneralPlaceholderView()
+            GeneralTabView()
                 .tabItem {
                     Label(SettingsTab.general.label, systemImage: SettingsTab.general.iconName)
                 }
@@ -112,27 +112,6 @@ struct ProvidersPlaceholderView: View {
                 .fontWeight(.semibold)
 
             Text("Configure LLM API credentials.\nImplemented in oc-4tw.5.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// Placeholder for General tab (oc-4tw.6).
-struct GeneralPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "gearshape")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-
-            Text("General")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("App-wide preferences.\nImplemented in oc-4tw.6.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
