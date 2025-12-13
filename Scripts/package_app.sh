@@ -13,6 +13,14 @@ CONTENTS="${APP_BUNDLE}/Contents"
 MACOS="${CONTENTS}/MacOS"
 RESOURCES="${CONTENTS}/Resources"
 
+# Select Info.plist based on build mode
+# Debug builds use a separate bundle ID for isolated accessibility permissions
+if [[ "$MODE" == "release" ]]; then
+    INFO_PLIST="${ROOT_DIR}/Info.plist"
+else
+    INFO_PLIST="${ROOT_DIR}/Info.debug.plist"
+fi
+
 # Build
 if [[ "$MODE" == "release" ]]; then
     swift build -c release
@@ -33,7 +41,7 @@ cp "${BINARY}" "${MACOS}/${APP_NAME}"
 sed -e "s/\$(MARKETING_VERSION)/${MARKETING_VERSION}/g" \
     -e "s/\$(BUILD_NUMBER)/${BUILD_NUMBER}/g" \
     -e "s/\$(BUNDLE_ID)/${BUNDLE_ID}/g" \
-    "${ROOT_DIR}/Info.plist" > "${CONTENTS}/Info.plist"
+    "${INFO_PLIST}" > "${CONTENTS}/Info.plist"
 
 # Copy icon if exists
 [[ -f "${ROOT_DIR}/Icon.icns" ]] && cp "${ROOT_DIR}/Icon.icns" "${RESOURCES}/AppIcon.icns"

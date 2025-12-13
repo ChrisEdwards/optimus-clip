@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Bundle Identity - DEBUG BUILD -->
+    <!-- Uses separate bundle ID so accessibility permissions are tracked separately -->
+    <key>CFBundleIdentifier</key>
+    <string>$(BUNDLE_ID).debug</string>
+
+    <key>CFBundleName</key>
+    <string>OptimusClip</string>
+
+    <key>CFBundleDisplayName</key>
+    <string>Optimus Clip (Debug)</string>
+
+    <key>CFBundleExecutable</key>
+    <string>OptimusClip</string>
+
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- Versioning (Populated by package_app.sh from version.env) -->
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+
+    <key>CFBundleVersion</key>
+    <string>$(BUILD_NUMBER)</string>
+
+    <!-- Menu Bar App Configuration -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+
+    <!-- App Metadata -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2025 Chris Edwards. All rights reserved.</string>
+</dict>
+</plist>

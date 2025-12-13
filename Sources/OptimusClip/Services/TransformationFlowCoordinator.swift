@@ -215,17 +215,25 @@ public final class TransformationFlowCoordinator: ObservableObject {
             return true
 
         } catch let error as TransformationFlowError {
-            self.lastError = error
-            self.delegate?.transformationFlowDidFail(error: error)
-            NSSound.beep()
+            self.handleFlowError(error)
             return false
-
         } catch {
-            let flowError = TransformationFlowError.transformationFailed(error)
-            self.lastError = flowError
-            self.delegate?.transformationFlowDidFail(error: flowError)
-            NSSound.beep()
+            self.handleFlowError(.transformationFailed(error))
             return false
+        }
+    }
+
+    /// Handles a flow error by updating state, notifying delegate, and optionally beeping.
+    private func handleFlowError(_ error: TransformationFlowError) {
+        self.lastError = error
+        self.delegate?.transformationFlowDidFail(error: error)
+
+        // Only beep for real errors, not for benign conditions
+        switch error {
+        case .selfWriteDetected, .clipboardEmpty:
+            break // Silent - not real errors
+        default:
+            NSSound.beep()
         }
     }
 

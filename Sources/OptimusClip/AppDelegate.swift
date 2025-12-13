@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Enforce single instance (defense in depth with LSMultipleInstancesProhibited)
         self.enforceSingleInstance()
+
+        // Register built-in hotkeys (Quick Fix, Smart Fix)
+        HotkeyManager.shared.registerBuiltInShortcuts()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
