@@ -46,7 +46,7 @@ test-parallel: ## Run tests in parallel (quiet output)
 
 check: ## Run format check and lint (quiet output)
 	@if [ -n "$$VERBOSE" ]; then \
-		swiftformat . --lint && swiftlint lint; \
+		swiftformat . --lint && swiftlint lint --strict; \
 	else \
 		$(MAKE) check-quiet; \
 	fi
@@ -56,7 +56,7 @@ check-quiet:
 	@. ./hack/run_silent.sh && print_header "OptimusClip" "Format check"
 	@. ./hack/run_silent.sh && run_with_quiet "Format check passed" "swiftformat . --lint"
 	@. ./hack/run_silent.sh && print_header "OptimusClip" "Lint"
-	@. ./hack/run_silent.sh && run_with_quiet "Lint passed" "swiftlint lint"
+	@. ./hack/run_silent.sh && run_with_quiet "Lint passed" "swiftlint lint --strict"
 
 format: ## Auto-format code with swiftformat
 	@if [ -n "$$VERBOSE" ]; then \
@@ -65,11 +65,11 @@ format: ## Auto-format code with swiftformat
 		. ./hack/run_silent.sh && run_silent "Formatting code" "swiftformat ."; \
 	fi
 
-lint: ## Run swiftlint with auto-fix
+lint: ## Run swiftlint with auto-fix and strict mode
 	@if [ -n "$$VERBOSE" ]; then \
-		swiftlint lint --fix; \
+		swiftlint lint --fix --strict; \
 	else \
-		. ./hack/run_silent.sh && run_silent "Linting code" "swiftlint lint --fix"; \
+		. ./hack/run_silent.sh && run_silent "Linting code" "swiftlint lint --fix --strict"; \
 	fi
 
 lint-strict: ## Run swiftlint in strict mode
