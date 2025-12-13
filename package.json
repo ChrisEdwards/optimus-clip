@@ -1,0 +1,30 @@
+{
+  "name": "optimus-clip",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Intelligent clipboard middleware for macOS",
+  "scripts": {
+    "start": "./Scripts/compile_and_run.sh",
+    "build": "swift build",
+    "build:release": "swift build -c release",
+    "test": "swift test",
+    "test:parallel": "swift test --parallel",
+    "format": "swiftformat .",
+    "format:check": "swiftformat . --lint",
+    "lint": "swiftlint lint --fix",
+    "lint:strict": "swiftlint lint --strict",
+    "check": "swiftformat . --lint && swiftlint lint",
+    "package": "./Scripts/package_app.sh debug",
+    "package:release": "./Scripts/package_app.sh release",
+    "stop": "./Scripts/kill_optimusclip.sh || true",
+    "clean": "swift package clean && rm -rf .build OptimusClip.app"
+  },
+  "keywords": [
+    "clipboard",
+    "macos",
+    "llm",
+    "menu-bar",
+    "swift"
+  ],
+  "license": "MIT"
+}
