@@ -1,0 +1,44 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Build artifacts
+OptimusClip.app/
+*.app/
+
+# Node.js (for NPM scripts tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# Environment/secrets
+.env
+.env.local
+*.local
+
+# Test artifacts
+*.xcresult
+coverage/
