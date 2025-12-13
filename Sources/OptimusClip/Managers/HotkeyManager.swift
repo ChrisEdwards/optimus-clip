@@ -1,5 +1,6 @@
 import AppKit
 import KeyboardShortcuts
+import OptimusClipCore
 
 /// Central manager for global hotkey registration and handling.
 ///
@@ -195,7 +196,7 @@ final class HotkeyManager: ObservableObject {
     /// Handles a built-in hotkey trigger (Quick Fix or Smart Fix).
     ///
     /// - Parameter name: The KeyboardShortcuts.Name that was triggered.
-    private func handleBuiltInHotkey(_: KeyboardShortcuts.Name) async {
+    private func handleBuiltInHotkey(_ name: KeyboardShortcuts.Name) async {
         // Prevent duplicate execution
         guard !self.isProcessing else {
             NSSound.beep()
@@ -208,10 +209,25 @@ final class HotkeyManager: ObservableObject {
         defer {
             self.isProcessing = false
             self.menuBarStateManager?.stopProcessing()
+            // Clear pipeline after execution
+            self.flowCoordinator.pipeline = nil
+        }
+
+        // Configure pipeline based on which hotkey was pressed
+        switch name {
+        case .quickFix:
+            // Quick Fix: strip whitespace + smart unwrap
+            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+        case .smartFix:
+            // Smart Fix: future LLM-based transformation (Phase 5)
+            // For now, use same as Quick Fix
+            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+        default:
+            // Unknown built-in shortcut, use identity (no-op)
+            self.flowCoordinator.pipeline = nil
         }
 
         // Execute the transformation flow
-        // For built-in shortcuts, the flow coordinator uses its configured transformation
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 
@@ -236,11 +252,16 @@ final class HotkeyManager: ObservableObject {
         defer {
             self.isProcessing = false
             self.menuBarStateManager?.stopProcessing()
+            // Clear pipeline after execution
+            self.flowCoordinator.pipeline = nil
         }
 
+        // Configure pipeline based on transformation config
+        // For now, all user transformations use the quickFix pipeline
+        // Phase 5 will add LLM-based transformations with custom pipelines
+        self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+
         // Execute the transformation flow
-        // TODO: In future phases, configure flow coordinator with transformation-specific settings
-        // For now, we use the default transformation (identity or configured)
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 

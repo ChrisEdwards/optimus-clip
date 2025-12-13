@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import OptimusClipCore
 
 /// Errors specific to the transformation flow.
@@ -131,8 +132,13 @@ public final class TransformationFlowCoordinator: ObservableObject {
 
     // MARK: - Dependencies
 
+    /// The transformation pipeline to execute.
+    /// When set, takes precedence over the single transformation.
+    public var pipeline: TransformationPipeline?
+
     /// The transformation to apply to clipboard content.
-    /// Defaults to IdentityTransformation (no-op) for Phase 2.
+    /// Used as fallback when no pipeline is set.
+    /// Defaults to IdentityTransformation (no-op).
     public var transformation: any Transformation = IdentityTransformation()
 
     /// Delegate for receiving flow events.
@@ -272,8 +278,24 @@ public final class TransformationFlowCoordinator: ObservableObject {
         }
     }
 
-    /// Transforms content with timeout protection.
+    /// Transforms content using pipeline (preferred) or single transformation.
+    ///
+    /// If a pipeline is configured, it handles its own timeout.
+    /// Otherwise, falls back to single transformation with timeout protection.
     private func transformWithTimeout(_ input: String) async throws -> String {
+        // Use pipeline if configured (pipeline has its own timeout)
+        if let pipeline = self.pipeline {
+            do {
+                let result = try await pipeline.execute(input)
+                return result.output
+            } catch let error as PipelineError {
+                throw TransformationFlowError.transformationFailed(error)
+            } catch let error as TransformationError {
+                throw error
+            }
+        }
+
+        // Fallback to single transformation with manual timeout
         let timeoutSeconds = Int(self.transformationTimeout)
         let timeoutTask = Task {
             try await Task.sleep(nanoseconds: UInt64(self.transformationTimeout * 1_000_000_000))
