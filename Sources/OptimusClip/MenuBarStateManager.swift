@@ -20,6 +20,16 @@ final class MenuBarStateManager: ObservableObject {
     /// The underlying state machine (testable in OptimusClipCore).
     @Published private(set) var stateMachine = IconStateMachine()
 
+    // MARK: - Initialization
+
+    /// Creates a new menu bar state manager and registers with HotkeyManager.
+    ///
+    /// This connects the state manager to the hotkey system so that transformation
+    /// processing triggers the pulse animation via startProcessing/stopProcessing.
+    init() {
+        HotkeyManager.shared.menuBarStateManager = self
+    }
+
     // MARK: - Forwarded Properties
 
     /// Current icon state.
