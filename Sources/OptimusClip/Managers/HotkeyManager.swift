@@ -70,6 +70,11 @@ final class HotkeyManager: ObservableObject {
     /// Call this once at app startup. The handlers will be active as long as
     /// the app is running.
     func registerBuiltInShortcuts() {
+        // Ensure built-in shortcuts have their defaults if not set
+        // This handles the case where user cleared the shortcut - reset to default
+        self.ensureDefaultShortcut(for: .quickFix)
+        self.ensureDefaultShortcut(for: .smartFix)
+
         // Quick Fix: Cmd+Option+V
         KeyboardShortcuts.onKeyUp(for: .quickFix) { [weak self] in
             guard let self else { return }
@@ -87,6 +92,19 @@ final class HotkeyManager: ObservableObject {
             }
         }
         self.registeredShortcuts.insert(.smartFix)
+    }
+
+    /// Ensures a built-in shortcut has its default value if currently unset.
+    ///
+    /// When a user clears a shortcut that has a default, KeyboardShortcuts stores
+    /// a "disabled" state rather than falling back to the default. This method
+    /// resets to the default if no shortcut is currently assigned.
+    ///
+    /// - Parameter name: The shortcut name to check and potentially reset.
+    private func ensureDefaultShortcut(for name: KeyboardShortcuts.Name) {
+        if KeyboardShortcuts.getShortcut(for: name) == nil {
+            KeyboardShortcuts.reset(name)
+        }
     }
 
     // MARK: - User Transformation Registration
