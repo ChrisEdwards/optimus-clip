@@ -53,7 +53,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.transformations)
 
-            ProvidersPlaceholderView()
+            ProvidersTabView()
                 .tabItem {
                     Label(SettingsTab.providers.label, systemImage: SettingsTab.providers.iconName)
                 }
@@ -65,7 +65,7 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.general)
 
-            PermissionsPlaceholderView()
+            PermissionsTabView()
                 .tabItem {
                     Label(SettingsTab.permissions.label, systemImage: SettingsTab.permissions.iconName)
                 }
@@ -91,48 +91,6 @@ struct TransformationsPlaceholderView: View {
                 .fontWeight(.semibold)
 
             Text("Create and edit clipboard transformation rules.\nImplemented in oc-4tw.4.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// Placeholder for Providers tab (oc-4tw.5).
-struct ProvidersPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "cloud")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-
-            Text("Providers")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Configure LLM API credentials.\nImplemented in oc-4tw.5.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-/// Placeholder for Permissions tab (oc-4tw.7).
-struct PermissionsPlaceholderView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
-
-            Text("Permissions")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("Accessibility permission management.\nImplemented in oc-4tw.7.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
