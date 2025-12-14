@@ -90,8 +90,84 @@ struct TransformationTests {
     // TODO: Phase 4 - Add tests for WhitespaceStripTransformation
     // TODO: Phase 4 - Add tests for SmartUnwrapTransformation
 
-    // MARK: - Phase 5: LLM Transformation Tests (TODO)
+    // MARK: - Phase 5: LLM Transformation Tests
 
-    // TODO: Phase 5 - Add tests for OpenAI integration (with mocking)
-    // TODO: Phase 5 - Add tests for Anthropic integration (with mocking)
+    @Test("LLMTransformation forwards request parameters to provider")
+    func llmTransformationForwardsRequest() async throws {
+        let provider = TestLLMProvider { request in
+            #expect(request.model == "gpt-4o-mini")
+            #expect(request.systemPrompt == "system prompt")
+            #expect(request.temperature == 0.25)
+            #expect(request.maxTokens == 128)
+            #expect(request.text == "hello world")
+            #expect(request.timeout == 3)
+
+            return LLMResponse(provider: request.provider, model: request.model, output: "processed", duration: 0.05)
+        }
+
+        let transformation = LLMTransformation(
+            id: "llm-forward",
+            displayName: "LLM Forwarding",
+            providerClient: provider,
+            model: "gpt-4o-mini",
+            systemPrompt: "system prompt",
+            temperature: 0.25,
+            maxTokens: 128,
+            timeoutSeconds: 3
+        )
+
+        let output = try await transformation.transform("hello world")
+        #expect(output == "processed")
+    }
+
+    @Test("LLMTransformation maps provider notConfigured to processing error")
+    func llmTransformationHandlesNotConfigured() async {
+        let provider = TestLLMProvider(configured: false) { _ in
+            LLMResponse(provider: .openAI, model: "gpt-4o-mini", output: "unused", duration: 0)
+        }
+
+        let transformation = LLMTransformation(
+            id: "llm-not-configured",
+            displayName: "LLM Not Configured",
+            providerClient: provider,
+            model: "gpt-4o-mini",
+            systemPrompt: "system prompt",
+            temperature: 0.25,
+            maxTokens: 128,
+            timeoutSeconds: 3
+        )
+
+        await #expect(throws: TransformationError.processingError("Provider is not configured")) {
+            _ = try await transformation.transform("hello world")
+        }
+    }
+}
+
+// MARK: - Test Doubles
+
+private struct TestLLMProvider: LLMProviderClient {
+    let provider: LLMProviderKind
+    private let configured: Bool
+    private let handler: @Sendable (LLMRequest) async throws -> LLMResponse
+
+    init(
+        provider: LLMProviderKind = .openAI,
+        configured: Bool = true,
+        handler: @escaping @Sendable (LLMRequest) async throws -> LLMResponse
+    ) {
+        self.provider = provider
+        self.configured = configured
+        self.handler = handler
+    }
+
+    func isConfigured() -> Bool {
+        self.configured
+    }
+
+    func transform(_ request: LLMRequest) async throws -> LLMResponse {
+        guard self.configured else {
+            throw LLMProviderError.notConfigured
+        }
+        return try await self.handler(request)
+    }
 }
