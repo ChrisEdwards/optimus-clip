@@ -39,6 +39,13 @@ let package = Package(
         .package(
             url: "https://github.com/orchetect/MenuBarExtraAccess",
             from: "1.0.0"
+        ),
+
+        // OpenAI Chat API client for LLM transformations
+        // Supports GPT-4o, GPT-4o-mini, and other OpenAI models
+        .package(
+            url: "https://github.com/kevinhermawan/swift-llm-chat-openai",
+            from: "1.0.0"
         )
     ],
 
@@ -56,7 +63,8 @@ let package = Package(
 
                 // Third-party dependencies
                 "KeyboardShortcuts",
-                .product(name: "MenuBarExtraAccess", package: "MenuBarExtraAccess")
+                .product(name: "MenuBarExtraAccess", package: "MenuBarExtraAccess"),
+                .product(name: "LLMChatOpenAI", package: "swift-llm-chat-openai")
             ],
             path: "Sources/OptimusClip",
 
