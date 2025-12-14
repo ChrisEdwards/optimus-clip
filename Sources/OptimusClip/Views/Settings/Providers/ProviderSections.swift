@@ -1,4 +1,3 @@
-import LLMChatOpenAI
 import SwiftUI
 
 // MARK: - OpenAI Provider Section
@@ -50,94 +49,6 @@ struct OpenAIProviderSection: View {
     }
 }
 
-// MARK: - OpenAI API Validator
-
-/// Validates OpenAI API credentials by making a test API call.
-enum OpenAIValidator {
-    /// Validates an OpenAI API key by making a minimal test request.
-    /// - Parameter apiKey: The API key to validate.
-    /// - Returns: A success message describing the validated key.
-    /// - Throws: An error if validation fails.
-    static func validateAPIKey(_ apiKey: String) async throws -> String {
-        // Basic format validation
-        guard apiKey.hasPrefix("sk-") else {
-            throw OpenAIValidationError.invalidFormat
-        }
-
-        // Make a minimal API call to validate the key
-        let chat = LLMChatOpenAI(apiKey: apiKey)
-        let messages = [ChatMessage(role: .user, content: "Hi")]
-
-        do {
-            // Use a cheap, fast model for validation
-            let completion = try await chat.send(model: "gpt-4o-mini", messages: messages)
-
-            // Extract model info from response
-            let modelUsed = completion.model
-            return "Connected to OpenAI (\(modelUsed))"
-        } catch let error as LLMChatOpenAIError {
-            throw Self.mapError(error)
-        }
-    }
-
-    private static func mapError(_ error: LLMChatOpenAIError) -> OpenAIValidationError {
-        switch error {
-        case let .serverError(statusCode, message):
-            switch statusCode {
-            case 401:
-                .invalidAPIKey
-            case 429:
-                .rateLimited
-            case 500 ... 599:
-                .serverError(message)
-            default:
-                .apiError(statusCode, message)
-            }
-        case .networkError:
-            .networkError
-        case .cancelled:
-            .cancelled
-        case .decodingError:
-            .unexpectedResponse
-        case .streamError:
-            .unexpectedResponse
-        }
-    }
-}
-
-/// Errors that can occur during OpenAI API key validation.
-enum OpenAIValidationError: LocalizedError {
-    case invalidFormat
-    case invalidAPIKey
-    case rateLimited
-    case networkError
-    case serverError(String)
-    case apiError(Int, String)
-    case unexpectedResponse
-    case cancelled
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidFormat:
-            "Invalid API key format (should start with sk-)"
-        case .invalidAPIKey:
-            "Invalid API key. Check your key at platform.openai.com"
-        case .rateLimited:
-            "Rate limited. Please wait a moment and try again"
-        case .networkError:
-            "Network error. Check your internet connection"
-        case let .serverError(message):
-            "OpenAI server error: \(message)"
-        case let .apiError(code, message):
-            "API error (\(code)): \(message)"
-        case .unexpectedResponse:
-            "Unexpected response from OpenAI"
-        case .cancelled:
-            "Validation cancelled"
-        }
-    }
-}
-
 // MARK: - Anthropic Provider Section
 
 /// Configuration section for Anthropic API credentials.
@@ -173,12 +84,14 @@ struct AnthropicProviderSection: View {
         self.validationState = .validating
 
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            await MainActor.run {
-                if self.apiKey.hasPrefix("sk-ant-") {
-                    self.validationState = .success(message: "API key format valid")
-                } else {
-                    self.validationState = .failure(error: "Invalid API key format (should start with sk-ant-)")
+            do {
+                let result = try await AnthropicValidator.validateAPIKey(self.apiKey)
+                await MainActor.run {
+                    self.validationState = .success(message: result)
+                }
+            } catch {
+                await MainActor.run {
+                    self.validationState = .failure(error: error.localizedDescription)
                 }
             }
         }
@@ -288,13 +201,14 @@ struct OllamaProviderSection: View {
         self.validationState = .validating
 
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            await MainActor.run {
-                // Simulated connection test - Phase 5 will implement actual HTTP call
-                if self.host.contains("localhost") || self.host.contains("127.0.0.1") {
-                    self.validationState = .success(message: "Connection test passed")
-                } else {
-                    self.validationState = .failure(error: "Cannot verify remote host")
+            do {
+                let result = try await OllamaValidator.testConnection(host: self.host, port: self.port)
+                await MainActor.run {
+                    self.validationState = .success(message: result)
+                }
+            } catch {
+                await MainActor.run {
+                    self.validationState = .failure(error: error.localizedDescription)
                 }
             }
         }
