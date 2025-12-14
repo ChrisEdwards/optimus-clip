@@ -98,10 +98,10 @@ private struct MenuBarMenuContent: View {
 
 // MARK: - View Helpers
 
-private extension View {
+extension View {
     /// Applies the menu bar processing pulse animation when available.
     @ViewBuilder
-    func processingPulse(isActive: Bool) -> some View {
+    fileprivate func processingPulse(isActive: Bool) -> some View {
         if #available(macOS 14.0, *) {
             self.symbolEffect(.pulse, isActive: isActive)
         } else {
@@ -111,7 +111,7 @@ private extension View {
 
     /// Conditionally sets an accessibility value when provided.
     @ViewBuilder
-    func optionalAccessibilityValue(_ value: String?) -> some View {
+    fileprivate func optionalAccessibilityValue(_ value: String?) -> some View {
         if let value {
             self.accessibilityValue(value)
         } else {

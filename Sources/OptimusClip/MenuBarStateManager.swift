@@ -51,7 +51,8 @@ final class MenuBarStateManager: ObservableObject {
         notificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     ) {
-        self.processingPublisher = processingPublisher ?? TransformationFlowCoordinator.shared.$isProcessing.eraseToAnyPublisher()
+        self.processingPublisher = processingPublisher ?? TransformationFlowCoordinator.shared.$isProcessing
+            .eraseToAnyPublisher()
         self.notificationCenter = notificationCenter
         self.reduceMotionProvider = reduceMotionProvider
         self.reduceMotionEnabled = reduceMotionProvider()
