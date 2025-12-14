@@ -40,13 +40,6 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - State
 
-    /// Whether a transformation is currently in progress.
-    ///
-    /// Used to prevent overlapping executions when user rapidly presses hotkeys.
-    /// The flow coordinator also has its own isProcessing state, but this provides
-    /// an additional guard at the hotkey level.
-    @Published private(set) var isProcessing: Bool = false
-
     /// Set of currently registered shortcut names for tracking.
     private var registeredShortcuts: Set<KeyboardShortcuts.Name> = []
 
@@ -211,17 +204,9 @@ final class HotkeyManager: ObservableObject {
     /// - Parameter name: The KeyboardShortcuts.Name that was triggered.
     private func handleBuiltInHotkey(_ name: KeyboardShortcuts.Name) async {
         // Prevent duplicate execution
-        guard !self.isProcessing else {
+        guard !self.flowCoordinator.isProcessing else {
             NSSound.beep()
             return
-        }
-
-        self.isProcessing = true
-
-        defer {
-            self.isProcessing = false
-            // Clear pipeline after execution
-            self.flowCoordinator.pipeline = nil
         }
 
         // Configure pipeline based on which hotkey was pressed
@@ -247,7 +232,7 @@ final class HotkeyManager: ObservableObject {
     /// - Parameter transformation: The transformation configuration that was triggered.
     private func handleUserTransformationHotkey(_ transformation: TransformationConfig) async {
         // Prevent duplicate execution
-        guard !self.isProcessing else {
+        guard !self.flowCoordinator.isProcessing else {
             NSSound.beep()
             return
         }
@@ -255,14 +240,6 @@ final class HotkeyManager: ObservableObject {
         // Skip if transformation is disabled
         guard transformation.isEnabled else {
             return
-        }
-
-        self.isProcessing = true
-
-        defer {
-            self.isProcessing = false
-            // Clear pipeline after execution
-            self.flowCoordinator.pipeline = nil
         }
 
         // Configure pipeline based on transformation config

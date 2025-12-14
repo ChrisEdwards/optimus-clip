@@ -2,6 +2,15 @@ import AppKit
 import Foundation
 import OptimusClipCore
 
+/// Represents lifecycle states for transformation execution.
+public enum TransformationProcessingState: Sendable {
+    case idle
+    case processing(request: TransformationRequest)
+    case completed(outcome: TransformationFlowOutcome)
+    case failed(request: TransformationRequest, error: TransformationFlowError)
+    case cancelled(request: TransformationRequest)
+}
+
 /// Errors specific to the transformation flow.
 public enum TransformationFlowError: Error, Sendable {
     /// Accessibility permission is not granted (required for paste simulation).
@@ -146,9 +155,15 @@ public final class TransformationFlowCoordinator: ObservableObject {
 
     // MARK: - State
 
+    /// Queue that serializes transformation execution and cancellation.
+    private let queue = TransformationQueue()
+
     /// Whether a transformation is currently in progress.
     /// Used to prevent concurrent transformations.
     @Published public private(set) var isProcessing: Bool = false
+
+    /// Detailed processing state for UI and coordination.
+    @Published public private(set) var processingState: TransformationProcessingState = .idle
 
     /// The last error that occurred, if any.
     @Published public private(set) var lastError: TransformationFlowError?
@@ -169,58 +184,36 @@ public final class TransformationFlowCoordinator: ObservableObject {
     @discardableResult
     public func handleHotkeyTrigger() async -> Bool {
         // Prevent concurrent transformations
-        guard !self.isProcessing else {
-            self.lastError = .alreadyProcessing
-            self.delegate?.transformationFlowDidFail(error: .alreadyProcessing)
-            NSSound.beep()
+        guard await !self.queue.isProcessing else {
+            self.handleFlowError(.alreadyProcessing)
             return false
         }
 
-        self.isProcessing = true
-        self.lastError = nil
-        self.delegate?.transformationFlowDidStart()
+        let request = self.makeRequest()
 
-        defer {
-            self.isProcessing = false
+        // Launch the transformation work as a Task tracked by the queue.
+        let task = Task(priority: .userInitiated) { @MainActor in
+            try await self.executeFlow(for: request)
         }
 
         do {
-            // Step 1: Check accessibility permission
-            try self.checkAccessibilityPermission()
-
-            // Step 2: Check self-write marker (skip our own writes)
-            try self.checkSelfWriteMarker()
-
-            // Step 3: Check for binary content and read text
-            let clipboardText = try self.readClipboardText()
-
-            // Step 4: Transform content with timeout
-            let transformedText = try await self.transformWithTimeout(clipboardText)
-
-            // Step 5: Write to clipboard with marker
-            try self.writeToClipboard(transformedText)
-
-            // Step 6: Wait briefly for clipboard to settle
-            try await Task.sleep(nanoseconds: UInt64(self.pasteDelay * 1_000_000_000))
-
-            // Step 7: Simulate paste
-            try self.simulatePaste()
-
-            // Success!
-            self.delegate?.transformationFlowDidComplete(
-                originalText: clipboardText,
-                transformedText: transformedText
-            )
-
-            return true
-
-        } catch let error as TransformationFlowError {
-            self.handleFlowError(error)
-            return false
+            try await self.queue.start(request: request, task: task)
         } catch {
-            self.handleFlowError(.transformationFailed(error))
+            task.cancel()
+            self.handleFlowError(.alreadyProcessing)
             return false
         }
+
+        self.transition(to: .processing(request: request))
+        self.lastError = nil
+        self.delegate?.transformationFlowDidStart()
+
+        // Observe completion without blocking the caller.
+        Task { @MainActor in
+            await self.awaitCompletion(for: request)
+        }
+
+        return true
     }
 
     /// Handles a flow error by updating state, notifying delegate, and optionally beeping.
@@ -242,7 +235,10 @@ public final class TransformationFlowCoordinator: ObservableObject {
     /// Call this to clear error state and prepare for a new transformation.
     public func reset() {
         self.lastError = nil
-        self.isProcessing = false
+        self.transition(to: .idle)
+        Task {
+            await self.queue.cancel()
+        }
     }
 
     // MARK: - Flow Steps
@@ -286,45 +282,6 @@ public final class TransformationFlowCoordinator: ObservableObject {
         }
     }
 
-    /// Transforms content using pipeline (preferred) or single transformation.
-    ///
-    /// If a pipeline is configured, it handles its own timeout.
-    /// Otherwise, falls back to single transformation with timeout protection.
-    private func transformWithTimeout(_ input: String) async throws -> String {
-        // Use pipeline if configured (pipeline has its own timeout)
-        if let pipeline = self.pipeline {
-            do {
-                let result = try await pipeline.execute(input)
-                return result.output
-            } catch let error as PipelineError {
-                throw TransformationFlowError.transformationFailed(error)
-            } catch let error as TransformationError {
-                throw error
-            }
-        }
-
-        // Fallback to single transformation with manual timeout
-        let timeoutSeconds = Int(self.transformationTimeout)
-        let timeoutTask = Task {
-            try await Task.sleep(nanoseconds: UInt64(self.transformationTimeout * 1_000_000_000))
-            throw TransformationError.timeout(seconds: timeoutSeconds)
-        }
-
-        let transformTask = Task {
-            try await self.transformation.transform(input)
-        }
-
-        // Race between timeout and transformation
-        return try await withTaskCancellationHandler {
-            let result = try await transformTask.value
-            timeoutTask.cancel()
-            return result
-        } onCancel: {
-            timeoutTask.cancel()
-            transformTask.cancel()
-        }
-    }
-
     /// Writes transformed text to clipboard with self-write marker.
     private func writeToClipboard(_ text: String) throws {
         let result = ClipboardWriter.shared.write(text)
@@ -343,6 +300,155 @@ public final class TransformationFlowCoordinator: ObservableObject {
             try PasteSimulator.shared.paste()
         } catch {
             throw TransformationFlowError.pasteSimulationFailed(error)
+        }
+    }
+
+    /// Build a request object describing the pending transformation.
+    private func makeRequest() -> TransformationRequest {
+        let timeout = self.transformationTimeout
+        let source: TransformationRequest.Source = self.pipeline == nil
+            ? .single(transformationId: self.transformation.id)
+            : .pipeline
+
+        return TransformationRequest(timeout: timeout, source: source)
+    }
+
+    /// Update processing and UI state in a single place.
+    private func transition(to newState: TransformationProcessingState) {
+        self.processingState = newState
+        switch newState {
+        case .processing:
+            self.isProcessing = true
+        case .idle, .completed, .failed, .cancelled:
+            self.isProcessing = false
+        }
+    }
+
+    /// Wait for the tracked task to complete and update UI/delegate callbacks.
+    private func awaitCompletion(for request: TransformationRequest) async {
+        guard let task = await self.queue.task() else {
+            if case .processing = self.processingState {
+                self.transition(to: .idle)
+            }
+            return
+        }
+
+        do {
+            let outcome = try await task.value
+            self.transition(to: .completed(outcome: outcome))
+            self.delegate?.transformationFlowDidComplete(
+                originalText: outcome.originalText,
+                transformedText: outcome.transformedText
+            )
+        } catch is CancellationError {
+            self.transition(to: .cancelled(request: request))
+        } catch let flowError as TransformationFlowError {
+            self.transition(to: .failed(request: request, error: flowError))
+            self.handleFlowError(flowError)
+        } catch {
+            let flowError = TransformationFlowError.transformationFailed(error)
+            self.transition(to: .failed(request: request, error: flowError))
+            self.handleFlowError(flowError)
+        }
+
+        // Clear pipeline after completion to avoid reuse across triggers.
+        self.pipeline = nil
+        await self.queue.finish()
+    }
+
+    /// Cancel the current transformation if one is running.
+    public func cancelCurrentTransformation() async {
+        let request = await self.queue.request()
+        await self.queue.cancel()
+
+        if let request {
+            self.transition(to: .cancelled(request: request))
+        } else {
+            self.transition(to: .idle)
+        }
+    }
+
+    /// Execute the full transformation flow for a specific request.
+    private func executeFlow(for request: TransformationRequest) async throws -> TransformationFlowOutcome {
+        try self.checkAccessibilityPermission()
+        try self.checkSelfWriteMarker()
+
+        let clipboardText = try self.readClipboardText()
+        try Task.checkCancellation()
+
+        let transformedText = try await self.performTransformation(
+            clipboardText,
+            timeout: request.timeout
+        )
+
+        try Task.checkCancellation()
+        try self.writeToClipboard(transformedText)
+
+        try await self.waitForPasteDelay()
+        try Task.checkCancellation()
+
+        try self.simulatePaste()
+
+        return TransformationFlowOutcome(
+            request: request,
+            originalText: clipboardText,
+            transformedText: transformedText
+        )
+    }
+
+    /// Run pipeline or single transformation with timeout protection.
+    private func performTransformation(
+        _ input: String,
+        timeout: TimeInterval
+    ) async throws -> String {
+        if let pipeline {
+            do {
+                let result = try await pipeline.execute(input)
+                return result.output
+            } catch let error as PipelineError {
+                throw TransformationFlowError.transformationFailed(error)
+            } catch let error as TransformationError {
+                throw TransformationFlowError.transformationFailed(error)
+            }
+        }
+
+        do {
+            return try await self.executeWithTimeout(timeout) {
+                try await self.transformation.transform(input)
+            }
+        } catch let error as TransformationError {
+            throw TransformationFlowError.transformationFailed(error)
+        }
+    }
+
+    /// Sleep for the configured paste delay.
+    private func waitForPasteDelay() async throws {
+        try await Task.sleep(for: .seconds(self.pasteDelay))
+    }
+
+    /// Execute a task with timeout and cooperative cancellation.
+    private func executeWithTimeout<T: Sendable>(
+        _ duration: TimeInterval,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+
+            group.addTask {
+                try await Task.sleep(for: .seconds(duration))
+                throw TransformationError.timeout(seconds: Int(duration))
+            }
+
+            guard let result = try await group.next() else {
+                throw TransformationFlowError.transformationFailed(
+                    TransformationError.processingError("Transformation did not produce a result")
+                )
+            }
+
+            group.cancelAll()
+            return result
         }
     }
 }
