@@ -137,12 +137,14 @@ struct OpenRouterProviderSection: View {
         self.validationState = .validating
 
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            await MainActor.run {
-                if self.apiKey.hasPrefix("sk-or-") {
-                    self.validationState = .success(message: "API key format valid")
-                } else {
-                    self.validationState = .failure(error: "Invalid API key format (should start with sk-or-)")
+            do {
+                let result = try await OpenRouterValidator.validateAPIKey(self.apiKey)
+                await MainActor.run {
+                    self.validationState = .success(message: result)
+                }
+            } catch {
+                await MainActor.run {
+                    self.validationState = .failure(error: error.localizedDescription)
                 }
             }
         }
@@ -326,21 +328,22 @@ struct AWSBedrockProviderSection: View {
         self.validationState = .validating
 
         Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            await MainActor.run {
-                // Simulated validation - Phase 5 will implement actual AWS SDK call
-                if self.authMethod == .profile {
-                    if self.profile == "default" || !self.profile.isEmpty {
-                        self.validationState = .success(message: "Profile format valid")
-                    } else {
-                        self.validationState = .failure(error: "Profile name required")
-                    }
+            do {
+                let result: String = if self.authMethod == .profile {
+                    try await BedrockValidator.validateProfile(self.profile, region: self.region)
                 } else {
-                    if self.accessKey.hasPrefix("AKIA") {
-                        self.validationState = .success(message: "Access key format valid")
-                    } else {
-                        self.validationState = .failure(error: "Invalid access key format (should start with AKIA)")
-                    }
+                    try await BedrockValidator.validateKeys(
+                        accessKey: self.accessKey,
+                        secretKey: self.secretKey,
+                        region: self.region
+                    )
+                }
+                await MainActor.run {
+                    self.validationState = .success(message: result)
+                }
+            } catch {
+                await MainActor.run {
+                    self.validationState = .failure(error: error.localizedDescription)
                 }
             }
         }
