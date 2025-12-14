@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import OptimusClipCore
 import SwiftUI
 
@@ -19,6 +20,46 @@ final class MenuBarStateManager: ObservableObject {
     /// The underlying state machine (testable in OptimusClipCore).
     @Published private(set) var stateMachine = IconStateMachine()
 
+    /// Indicates whether an LLM transformation is currently running.
+    @Published private(set) var isProcessing: Bool = false
+
+    /// Reflects the user's Reduce Motion accessibility preference.
+    @Published private(set) var reduceMotionEnabled: Bool
+
+    /// Publisher we listen to for processing state updates (injectable for testing).
+    private let processingPublisher: AnyPublisher<Bool, Never>
+
+    /// Notification center for observing accessibility preference changes.
+    private let notificationCenter: NotificationCenter
+
+    /// Closure that reads the current Reduce Motion setting.
+    private let reduceMotionProvider: () -> Bool
+
+    /// Combine cancellables for publisher subscriptions.
+    private var cancellables = Set<AnyCancellable>()
+
+    // MARK: - Initialization
+
+    /// Creates a new menu bar state manager.
+    ///
+    /// - Parameters:
+    ///   - processingPublisher: Optional custom publisher for processing state (used in tests).
+    ///   - notificationCenter: Notification center for accessibility changes.
+    ///   - reduceMotionProvider: Closure that reports the current Reduce Motion preference.
+    init(
+        processingPublisher: AnyPublisher<Bool, Never>? = nil,
+        notificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    ) {
+        self.processingPublisher = processingPublisher ?? TransformationFlowCoordinator.shared.$isProcessing.eraseToAnyPublisher()
+        self.notificationCenter = notificationCenter
+        self.reduceMotionProvider = reduceMotionProvider
+        self.reduceMotionEnabled = reduceMotionProvider()
+
+        self.observeProcessing()
+        self.observeAccessibilityChanges()
+    }
+
     // MARK: - Forwarded Properties
 
     /// Current icon state.
@@ -29,6 +70,16 @@ final class MenuBarStateManager: ObservableObject {
     /// Computed opacity based on current icon state.
     var iconOpacity: Double {
         self.stateMachine.iconOpacity
+    }
+
+    /// Whether the menu bar icon should animate to indicate processing.
+    var shouldAnimateProcessing: Bool {
+        self.isProcessing && !self.reduceMotionEnabled
+    }
+
+    /// Whether the icon should highlight (color change) instead of animating.
+    var shouldHighlightProcessingIcon: Bool {
+        self.isProcessing && self.reduceMotionEnabled
     }
 
     // MARK: - State Transitions
@@ -47,5 +98,27 @@ final class MenuBarStateManager: ObservableObject {
     /// - Parameter statusItem: The NSStatusItem to configure.
     func configureStatusItem(_ statusItem: NSStatusItem) {
         statusItem.button?.toolTip = "Optimus Clip"
+    }
+
+    // MARK: - Observers
+
+    private func observeProcessing() {
+        self.processingPublisher
+            .receive(on: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] isProcessing in
+                self?.isProcessing = isProcessing
+            }
+            .store(in: &self.cancellables)
+    }
+
+    private func observeAccessibilityChanges() {
+        self.notificationCenter.publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.reduceMotionEnabled = self.reduceMotionProvider()
+            }
+            .store(in: &self.cancellables)
     }
 }

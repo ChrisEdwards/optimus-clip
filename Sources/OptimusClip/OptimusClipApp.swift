@@ -24,10 +24,7 @@ struct OptimusClipApp: App {
         MenuBarExtra {
             MenuBarMenuContent()
         } label: {
-            // Dynamic icon with state-based opacity
-            Image(systemName: "clipboard.fill")
-                .opacity(self.menuBarState.iconOpacity)
-                .accessibilityLabel(self.accessibilityLabel)
+            self.menuBarIcon
         }
         .menuBarExtraStyle(.menu)
         .menuBarExtraAccess(isPresented: self.$menuBarState.isMenuPresented) { statusItem in
@@ -48,6 +45,28 @@ struct OptimusClipApp: App {
         case .disabled:
             "Optimus Clip (Disabled)"
         }
+    }
+
+    /// Accessibility value that surfaces processing state to assistive tech.
+    private var processingAccessibilityValue: String? {
+        guard self.menuBarState.isProcessing else {
+            return nil
+        }
+        return "Processing transformation"
+    }
+
+    /// Menu bar icon view with animation/highlight applied.
+    @ViewBuilder
+    private var menuBarIcon: some View {
+        Image(systemName: "clipboard.fill")
+            .symbolRenderingMode(.hierarchical)
+            .foregroundStyle(
+                self.menuBarState.shouldHighlightProcessingIcon ? Color.accentColor : Color.primary
+            )
+            .opacity(self.menuBarState.iconOpacity)
+            .accessibilityLabel(self.accessibilityLabel)
+            .optionalAccessibilityValue(self.processingAccessibilityValue)
+            .processingPulse(isActive: self.menuBarState.shouldAnimateProcessing)
     }
 }
 
@@ -74,5 +93,29 @@ private struct MenuBarMenuContent: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+// MARK: - View Helpers
+
+private extension View {
+    /// Applies the menu bar processing pulse animation when available.
+    @ViewBuilder
+    func processingPulse(isActive: Bool) -> some View {
+        if #available(macOS 14.0, *) {
+            self.symbolEffect(.pulse, isActive: isActive)
+        } else {
+            self
+        }
+    }
+
+    /// Conditionally sets an accessibility value when provided.
+    @ViewBuilder
+    func optionalAccessibilityValue(_ value: String?) -> some View {
+        if let value {
+            self.accessibilityValue(value)
+        } else {
+            self
+        }
     }
 }
