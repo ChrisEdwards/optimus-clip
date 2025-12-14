@@ -46,6 +46,13 @@ let package = Package(
         .package(
             url: "https://github.com/kevinhermawan/swift-llm-chat-openai",
             from: "1.0.0"
+        ),
+
+        // Anthropic Chat API client for LLM transformations
+        // Supports Claude 3.5 Sonnet, Claude 3 Haiku, Opus, and other Claude models
+        .package(
+            url: "https://github.com/kevinhermawan/swift-llm-chat-anthropic",
+            from: "1.0.0"
         )
     ],
 
@@ -64,7 +71,8 @@ let package = Package(
                 // Third-party dependencies
                 "KeyboardShortcuts",
                 .product(name: "MenuBarExtraAccess", package: "MenuBarExtraAccess"),
-                .product(name: "LLMChatOpenAI", package: "swift-llm-chat-openai")
+                .product(name: "LLMChatOpenAI", package: "swift-llm-chat-openai"),
+                .product(name: "LLMChatAnthropic", package: "swift-llm-chat-anthropic")
             ],
             path: "Sources/OptimusClip",
 
