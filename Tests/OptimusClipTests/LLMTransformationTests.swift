@@ -94,6 +94,39 @@ struct LLMTransformationTests {
             _ = try await transformation.transform("12345")
         }
     }
+
+    @Test("maps provider errors to transformation errors")
+    func mapsProviderErrors() async {
+        let mappings: [(LLMProviderError, TransformationError)] = [
+            (.notConfigured, .processingError("Provider is not configured")),
+            (.authenticationError, .authenticationError),
+            (.rateLimited(retryAfter: 15), .rateLimited(retryAfter: 15)),
+            (.timeout, .timeout(seconds: 2)),
+            (.modelNotFound, .processingError("Model not available")),
+            (.network("offline"), .networkError("offline")),
+            (.server("boom"), .processingError("boom")),
+            (.invalidResponse("bad payload"), .processingError("bad payload"))
+        ]
+
+        for (providerError, expected) in mappings {
+            let provider = StubLLMProvider { _ in
+                throw providerError
+            }
+
+            let transformation = LLMTransformation(
+                id: "llm-error-\(providerError)",
+                displayName: "LLM Error Mapping",
+                providerClient: provider,
+                model: "gpt-4o",
+                systemPrompt: "test",
+                timeoutSeconds: 2
+            )
+
+            await #expect(throws: expected) {
+                _ = try await transformation.transform("Hello")
+            }
+        }
+    }
 }
 
 // MARK: - Test Doubles
