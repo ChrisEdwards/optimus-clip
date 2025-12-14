@@ -95,9 +95,10 @@ let package = Package(
         .testTarget(
             name: "OptimusClipTests",
             dependencies: [
-                // Tests only depend on Core, not the executable
-                // This makes tests fast and isolated
-                "OptimusClipCore"
+                // Depend on both Core and the main app target
+                // Core for transformation logic, OptimusClip for app-level services
+                "OptimusClipCore",
+                "OptimusClip"
             ],
             path: "Tests/OptimusClipTests",
 
