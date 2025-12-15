@@ -46,7 +46,16 @@ sed -e "s/\$(MARKETING_VERSION)/${MARKETING_VERSION}/g" \
 # Copy icon if exists
 [[ -f "${ROOT_DIR}/Icon.icns" ]] && cp "${ROOT_DIR}/Icon.icns" "${RESOURCES}/AppIcon.icns"
 
-# Ad-hoc sign the app for consistent identity (prevents accessibility permission reset on rebuild)
-codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null || true
+# Code sign the app
+# Debug builds use "OptimusClip Dev" certificate if available (preserves accessibility permissions)
+# Release builds use ad-hoc signing (will be properly signed for distribution later)
+DEV_CERT="OptimusClip Dev"
+if [[ "$MODE" != "release" ]] && security find-identity -v -p codesigning 2>/dev/null | grep -q "${DEV_CERT}"; then
+    codesign --force --deep --sign "${DEV_CERT}" "${APP_BUNDLE}" 2>/dev/null
+    SIGN_INFO="signed with ${DEV_CERT}"
+else
+    codesign --force --deep --sign - "${APP_BUNDLE}" 2>/dev/null || true
+    SIGN_INFO="ad-hoc signed"
+fi
 
-echo "✓ Packaged ${APP_BUNDLE} (${MODE}, v${MARKETING_VERSION} build ${BUILD_NUMBER})"
+echo "✓ Packaged ${APP_BUNDLE} (${MODE}, v${MARKETING_VERSION} build ${BUILD_NUMBER}, ${SIGN_INFO})"
