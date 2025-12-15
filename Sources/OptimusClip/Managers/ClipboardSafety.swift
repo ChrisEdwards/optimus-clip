@@ -40,26 +40,57 @@ public enum ClipboardSafety {
 
     /// Pasteboard types that indicate binary content.
     /// If ANY of these are present, clipboard should not be processed.
+    ///
+    /// This list must be comprehensive to prevent binary data from reaching
+    /// LLM APIs. Missing types cause crashes, API errors, or wasted calls.
     public static let binaryTypes: Set<NSPasteboard.PasteboardType> = [
         // Images
         .png,
         .tiff,
         NSPasteboard.PasteboardType("public.jpeg"),
         NSPasteboard.PasteboardType("public.heic"),
+        NSPasteboard.PasteboardType("public.heif"),
         NSPasteboard.PasteboardType("public.gif"),
         NSPasteboard.PasteboardType("public.bmp"),
+        NSPasteboard.PasteboardType("public.webp"),
         NSPasteboard.PasteboardType("public.ico"),
         NSPasteboard.PasteboardType("public.svg-image"),
+        NSPasteboard.PasteboardType("com.apple.icns"),
 
         // Files
         .fileURL,
         NSPasteboard.PasteboardType("public.file-url"),
         NSPasteboard.PasteboardType("com.apple.finder.node"),
         NSPasteboard.PasteboardType("NSFilenamesPboardType"),
+        NSPasteboard.PasteboardType("public.url"),
 
         // Documents
         .pdf,
-        NSPasteboard.PasteboardType("com.adobe.pdf")
+        NSPasteboard.PasteboardType("com.adobe.pdf"),
+        NSPasteboard.PasteboardType("public.pdf"),
+
+        // Video (including screen recordings)
+        NSPasteboard.PasteboardType("public.movie"),
+        NSPasteboard.PasteboardType("public.video"),
+        NSPasteboard.PasteboardType("com.apple.quicktime-movie"),
+        NSPasteboard.PasteboardType("public.mpeg-4"),
+        NSPasteboard.PasteboardType("com.apple.m4v-video"),
+
+        // Audio
+        NSPasteboard.PasteboardType("public.audio"),
+        NSPasteboard.PasteboardType("public.mp3"),
+        NSPasteboard.PasteboardType("com.apple.m4a-audio"),
+        NSPasteboard.PasteboardType("public.aiff-audio"),
+
+        // Archives
+        NSPasteboard.PasteboardType("public.zip-archive"),
+        NSPasteboard.PasteboardType("org.gnu.gnu-tar-archive"),
+        NSPasteboard.PasteboardType("public.archive"),
+        NSPasteboard.PasteboardType("com.apple.bom-compressed-cpio"),
+
+        // Raw data that should never be processed
+        NSPasteboard.PasteboardType("public.data"),
+        NSPasteboard.PasteboardType("public.content")
     ]
 
     /// Pasteboard types that indicate processable text content.
@@ -132,16 +163,40 @@ public enum ClipboardSafety {
             "public.jpg": "an image (JPEG)",
             "public.tiff": "an image (TIFF)",
             "public.heic": "an image (HEIC)",
+            "public.heif": "an image (HEIF)",
             "public.gif": "an image (GIF)",
             "public.bmp": "an image (BMP)",
+            "public.webp": "an image (WebP)",
             "public.ico": "an icon",
             "public.svg-image": "an image (SVG)",
+            "com.apple.icns": "an icon",
             // Files
             "public.file-url": "a file",
+            "public.url": "a URL",
             "com.apple.finder.node": "a file",
             "NSFilenamesPboardType": "a file",
             // Documents
-            "com.adobe.pdf": "a PDF document"
+            "com.adobe.pdf": "a PDF document",
+            "public.pdf": "a PDF document",
+            // Video
+            "public.movie": "a video",
+            "public.video": "a video",
+            "com.apple.quicktime-movie": "a video (QuickTime)",
+            "public.mpeg-4": "a video (MP4)",
+            "com.apple.m4v-video": "a video (M4V)",
+            // Audio
+            "public.audio": "audio",
+            "public.mp3": "audio (MP3)",
+            "com.apple.m4a-audio": "audio (M4A)",
+            "public.aiff-audio": "audio (AIFF)",
+            // Archives
+            "public.zip-archive": "an archive (ZIP)",
+            "org.gnu.gnu-tar-archive": "an archive (TAR)",
+            "public.archive": "an archive",
+            "com.apple.bom-compressed-cpio": "an archive",
+            // Raw data
+            "public.data": "binary data",
+            "public.content": "non-text content"
         ]
         // Add NSPasteboard type raw values
         map[NSPasteboard.PasteboardType.png.rawValue] = "an image (PNG)"
