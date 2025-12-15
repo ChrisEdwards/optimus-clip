@@ -50,6 +50,11 @@ struct GeneralTabView: View {
 
     private func updateLoginItemStatus() {
         self.loginItemStatus = SMAppService.mainApp.status
+        // Sync AppStorage with actual system state (user may have changed in System Settings)
+        let actuallyEnabled = self.loginItemStatus == .enabled
+        if self.launchAtLogin != actuallyEnabled {
+            self.launchAtLogin = actuallyEnabled
+        }
     }
 }
 
