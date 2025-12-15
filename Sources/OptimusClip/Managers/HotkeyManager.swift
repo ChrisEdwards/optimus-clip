@@ -215,9 +215,13 @@ final class HotkeyManager: ObservableObject {
             // Quick Fix: strip whitespace + smart unwrap
             self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
         case .smartFix:
-            // Smart Fix: future LLM-based transformation (Phase 5)
-            // For now, use same as Quick Fix
-            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+            // Smart Fix: LLM-based transformation with default settings
+            guard let pipeline = self.createSmartFixPipeline() else {
+                // LLM not configured - beep and abort
+                NSSound.beep()
+                return
+            }
+            self.flowCoordinator.pipeline = pipeline
         default:
             // Unknown built-in shortcut, use identity (no-op)
             self.flowCoordinator.pipeline = nil
@@ -225,6 +229,54 @@ final class HotkeyManager: ObservableObject {
 
         // Execute the transformation flow
         _ = await self.flowCoordinator.handleHotkeyTrigger()
+    }
+
+    /// Creates the default Smart Fix LLM pipeline.
+    ///
+    /// Uses Anthropic Claude as the default provider with a general cleanup prompt.
+    /// Falls back to the first configured LLM provider if Anthropic is not available.
+    ///
+    /// - Returns: A configured LLM pipeline, or `nil` if no LLM provider is configured.
+    private func createSmartFixPipeline() -> TransformationPipeline? {
+        let factory = LLMProviderClientFactory()
+
+        // Try the default provider (Anthropic) first
+        if let client = try? factory.client(for: .anthropic), client.isConfigured() {
+            return self.makeSmartFixPipeline(client: client, model: "claude-3-haiku-20240307")
+        }
+
+        // Fall back to any configured provider
+        guard let configuredClients = try? factory.configuredClients(),
+              let (provider, client) = configuredClients.first else {
+            return nil
+        }
+
+        return self.makeSmartFixPipeline(client: client, model: Self.defaultModel(for: provider))
+    }
+
+    /// Creates an LLM pipeline for Smart Fix with the given client and model.
+    private func makeSmartFixPipeline(client: any LLMProviderClient, model: String) -> TransformationPipeline {
+        let prompt = "Clean up and improve the following text. " +
+            "Fix grammar, spelling, and formatting issues while preserving the original meaning."
+        let transformation = LLMTransformation(
+            id: "smart-fix-builtin",
+            displayName: "Smart Fix",
+            providerClient: client,
+            model: model,
+            systemPrompt: prompt
+        )
+        return TransformationPipeline.single(transformation, config: .llm)
+    }
+
+    /// Returns a reasonable default model for the given provider.
+    private static func defaultModel(for provider: LLMProviderKind) -> String {
+        switch provider {
+        case .openAI: "gpt-4o-mini"
+        case .anthropic: "claude-3-haiku-20240307"
+        case .openRouter: "anthropic/claude-3-haiku"
+        case .ollama: "llama3.1"
+        case .awsBedrock: "anthropic.claude-3-haiku-20240307-v1:0"
+        }
     }
 
     /// Handles a user-created transformation hotkey trigger.
@@ -242,13 +294,59 @@ final class HotkeyManager: ObservableObject {
             return
         }
 
-        // Configure pipeline based on transformation config
-        // For now, all user transformations use the quickFix pipeline
-        // Phase 5 will add LLM-based transformations with custom pipelines
-        self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+        // Configure pipeline based on transformation type
+        switch transformation.type {
+        case .algorithmic:
+            // Algorithmic transformations use the quickFix pipeline
+            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+
+        case .llm:
+            // LLM transformations require provider configuration
+            guard let pipeline = self.createLLMPipeline(for: transformation) else {
+                // LLM not configured - beep and abort
+                NSSound.beep()
+                return
+            }
+            self.flowCoordinator.pipeline = pipeline
+        }
 
         // Execute the transformation flow
         _ = await self.flowCoordinator.handleHotkeyTrigger()
+    }
+
+    // MARK: - LLM Pipeline Factory
+
+    /// Creates an LLM transformation pipeline from a transformation config.
+    ///
+    /// - Parameter transformation: The transformation config with LLM settings.
+    /// - Returns: A configured pipeline, or `nil` if LLM is not configured.
+    private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
+        // Validate required LLM configuration
+        guard let providerString = transformation.provider,
+              let providerKind = LLMProviderKind(rawValue: providerString),
+              let model = transformation.model,
+              !model.isEmpty else {
+            return nil
+        }
+
+        // Get the provider client from credentials
+        let factory = LLMProviderClientFactory()
+        guard let client = try? factory.client(for: providerKind),
+              client.isConfigured() else {
+            return nil
+        }
+
+        // Create the LLM transformation
+        let llmTransformation = LLMTransformation(
+            id: "llm-\(transformation.id.uuidString)",
+            displayName: transformation.name,
+            providerClient: client,
+            model: model,
+            systemPrompt: transformation.systemPrompt
+        )
+
+        // Wrap in a pipeline with LLM-appropriate timeout
+        return TransformationPipeline.single(llmTransformation, config: .llm)
     }
 
     // MARK: - Query Methods
