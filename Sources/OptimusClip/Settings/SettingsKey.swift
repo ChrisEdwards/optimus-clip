@@ -28,15 +28,18 @@ enum SettingsKey {
     /// Maximum time (in seconds) to wait for LLM responses.
     static let transformationTimeout = "transformationTimeout"
 
-    // MARK: - API Keys (Phase 6: migrate to Keychain)
+    /// Maximum number of history entries to retain.
+    static let historyEntryLimit = "historyEntryLimit"
 
-    /// OpenAI API key for GPT models.
+    // MARK: - API Keys (legacy @AppStorage keys for Keychain migration)
+
+    /// OpenAI API key for GPT models (legacy @AppStorage key; now migrated to Keychain).
     static let openAIKey = "openai_api_key"
 
-    /// Anthropic API key for Claude models.
+    /// Anthropic API key for Claude models (legacy @AppStorage key; now migrated to Keychain).
     static let anthropicKey = "anthropic_api_key"
 
-    /// OpenRouter API key for aggregated model access.
+    /// OpenRouter API key for aggregated model access (legacy @AppStorage key; now migrated to Keychain).
     static let openRouterKey = "openrouter_api_key"
 
     // MARK: - Ollama Configuration
@@ -55,16 +58,16 @@ enum SettingsKey {
     /// AWS profile name for profile-based authentication.
     static let awsProfile = "aws_profile"
 
-    /// AWS access key ID for key-based authentication.
+    /// AWS access key ID for key-based authentication (legacy @AppStorage key; now migrated to Keychain).
     static let awsAccessKey = "aws_access_key"
 
-    /// AWS secret access key for key-based authentication.
+    /// AWS secret access key for key-based authentication (legacy @AppStorage key; now migrated to Keychain).
     static let awsSecretKey = "aws_secret_key"
 
     /// AWS region for Bedrock API calls.
     static let awsRegion = "aws_region"
 
-    /// AWS bearer token for token-based authentication (AWS_BEARER_TOKEN_BEDROCK).
+    /// AWS bearer token for token-based authentication (legacy @AppStorage key; now migrated to Keychain).
     static let awsBearerToken = "aws_bearer_token"
 
     /// AWS Bedrock model ID.
@@ -87,6 +90,7 @@ enum DefaultSettings {
     static let launchAtLogin = false
     static let soundEffectsEnabled = true
     static let transformationTimeout = 30.0
+    static let historyEntryLimit = 100
 
     // Ollama
     static let ollamaHost = "http://localhost"

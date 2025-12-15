@@ -1,6 +1,18 @@
 import Foundation
 import Security
 
+// MARK: - Keychain Service Names
+
+enum KeychainServiceName {
+    static let openAI = "com.optimusclip.openai"
+    static let anthropic = "com.optimusclip.anthropic"
+    static let openrouter = "com.optimusclip.openrouter"
+    static let awsAccessKey = "com.optimusclip.aws.accesskey"
+    static let awsSecretKey = "com.optimusclip.aws.secretkey"
+    static let awsBearerToken = "com.optimusclip.aws.bearer"
+    static let ollama = "com.optimusclip.ollama"
+}
+
 // MARK: - KeychainError
 
 /// Errors that can occur during Keychain operations
@@ -236,119 +248,108 @@ final class KeychainWrapper: KeychainService, @unchecked Sendable {
 // MARK: - Provider-Specific Convenience Methods
 
 extension KeychainWrapper {
-    // MARK: - Service Identifiers
-
-    private enum Service {
-        static let openai = "com.optimusclip.openai"
-        static let anthropic = "com.optimusclip.anthropic"
-        static let openrouter = "com.optimusclip.openrouter"
-        static let awsAccessKey = "com.optimusclip.aws.accesskey"
-        static let awsSecretKey = "com.optimusclip.aws.secretkey"
-        static let ollama = "com.optimusclip.ollama"
-    }
-
-    private static let defaultAccount = "api_key"
+    static let defaultAccount = "api_key"
 
     // MARK: - OpenAI
 
     func saveOpenAIKey(_ key: String) throws {
-        try self.saveString(key, service: Service.openai, account: Self.defaultAccount)
+        try self.saveString(key, service: KeychainServiceName.openAI, account: Self.defaultAccount)
     }
 
     func getOpenAIKey() throws -> String? {
-        try self.getString(service: Service.openai, account: Self.defaultAccount)
+        try self.getString(service: KeychainServiceName.openAI, account: Self.defaultAccount)
     }
 
     func deleteOpenAIKey() throws {
-        try self.delete(service: Service.openai, account: Self.defaultAccount)
+        try self.delete(service: KeychainServiceName.openAI, account: Self.defaultAccount)
     }
 
     func hasOpenAIKey() -> Bool {
-        self.exists(service: Service.openai, account: Self.defaultAccount)
+        self.exists(service: KeychainServiceName.openAI, account: Self.defaultAccount)
     }
 
     // MARK: - Anthropic
 
     func saveAnthropicKey(_ key: String) throws {
-        try self.saveString(key, service: Service.anthropic, account: Self.defaultAccount)
+        try self.saveString(key, service: KeychainServiceName.anthropic, account: Self.defaultAccount)
     }
 
     func getAnthropicKey() throws -> String? {
-        try self.getString(service: Service.anthropic, account: Self.defaultAccount)
+        try self.getString(service: KeychainServiceName.anthropic, account: Self.defaultAccount)
     }
 
     func deleteAnthropicKey() throws {
-        try self.delete(service: Service.anthropic, account: Self.defaultAccount)
+        try self.delete(service: KeychainServiceName.anthropic, account: Self.defaultAccount)
     }
 
     func hasAnthropicKey() -> Bool {
-        self.exists(service: Service.anthropic, account: Self.defaultAccount)
+        self.exists(service: KeychainServiceName.anthropic, account: Self.defaultAccount)
     }
 
     // MARK: - OpenRouter
 
     func saveOpenRouterKey(_ key: String) throws {
-        try self.saveString(key, service: Service.openrouter, account: Self.defaultAccount)
+        try self.saveString(key, service: KeychainServiceName.openrouter, account: Self.defaultAccount)
     }
 
     func getOpenRouterKey() throws -> String? {
-        try self.getString(service: Service.openrouter, account: Self.defaultAccount)
+        try self.getString(service: KeychainServiceName.openrouter, account: Self.defaultAccount)
     }
 
     func deleteOpenRouterKey() throws {
-        try self.delete(service: Service.openrouter, account: Self.defaultAccount)
+        try self.delete(service: KeychainServiceName.openrouter, account: Self.defaultAccount)
     }
 
     func hasOpenRouterKey() -> Bool {
-        self.exists(service: Service.openrouter, account: Self.defaultAccount)
+        self.exists(service: KeychainServiceName.openrouter, account: Self.defaultAccount)
     }
 
     // MARK: - AWS Bedrock
 
     func saveAWSAccessKey(_ key: String) throws {
-        try self.saveString(key, service: Service.awsAccessKey, account: Self.defaultAccount)
+        try self.saveString(key, service: KeychainServiceName.awsAccessKey, account: Self.defaultAccount)
     }
 
     func getAWSAccessKey() throws -> String? {
-        try self.getString(service: Service.awsAccessKey, account: Self.defaultAccount)
+        try self.getString(service: KeychainServiceName.awsAccessKey, account: Self.defaultAccount)
     }
 
     func deleteAWSAccessKey() throws {
-        try self.delete(service: Service.awsAccessKey, account: Self.defaultAccount)
+        try self.delete(service: KeychainServiceName.awsAccessKey, account: Self.defaultAccount)
     }
 
     func hasAWSAccessKey() -> Bool {
-        self.exists(service: Service.awsAccessKey, account: Self.defaultAccount)
+        self.exists(service: KeychainServiceName.awsAccessKey, account: Self.defaultAccount)
     }
 
     func saveAWSSecretKey(_ key: String) throws {
-        try self.saveString(key, service: Service.awsSecretKey, account: Self.defaultAccount)
+        try self.saveString(key, service: KeychainServiceName.awsSecretKey, account: Self.defaultAccount)
     }
 
     func getAWSSecretKey() throws -> String? {
-        try self.getString(service: Service.awsSecretKey, account: Self.defaultAccount)
+        try self.getString(service: KeychainServiceName.awsSecretKey, account: Self.defaultAccount)
     }
 
     func deleteAWSSecretKey() throws {
-        try self.delete(service: Service.awsSecretKey, account: Self.defaultAccount)
+        try self.delete(service: KeychainServiceName.awsSecretKey, account: Self.defaultAccount)
     }
 
     func hasAWSSecretKey() -> Bool {
-        self.exists(service: Service.awsSecretKey, account: Self.defaultAccount)
+        self.exists(service: KeychainServiceName.awsSecretKey, account: Self.defaultAccount)
     }
 
     // MARK: - Ollama (endpoint configuration, not API key)
 
     func saveOllamaEndpoint(_ endpoint: String) throws {
-        try self.saveString(endpoint, service: Service.ollama, account: "endpoint")
+        try self.saveString(endpoint, service: KeychainServiceName.ollama, account: "endpoint")
     }
 
     func getOllamaEndpoint() throws -> String? {
-        try self.getString(service: Service.ollama, account: "endpoint")
+        try self.getString(service: KeychainServiceName.ollama, account: "endpoint")
     }
 
     func deleteOllamaEndpoint() throws {
-        try self.delete(service: Service.ollama, account: "endpoint")
+        try self.delete(service: KeychainServiceName.ollama, account: "endpoint")
     }
 }
 

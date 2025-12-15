@@ -11,19 +11,20 @@ import SwiftUI
 /// - **Ollama**: Host and port for local models
 /// - **AWS Bedrock**: Profile or access keys with region
 ///
-/// API keys are stored in @AppStorage (UserDefaults) for the MVP.
-/// Phase 6 will migrate to Keychain for secure storage.
+/// API keys are stored in the system Keychain (Phase 6 requirement).
 struct ProvidersTabView: View {
+    private let apiKeyStore = APIKeyStore()
+
     // OpenAI configuration
-    @AppStorage("openai_api_key") private var openAIKey = ""
+    @State private var openAIKey = ""
     @AppStorage("openai_model_id") private var openAIModelId = "gpt-4o-mini"
 
     // Anthropic configuration
-    @AppStorage("anthropic_api_key") private var anthropicKey = ""
+    @State private var anthropicKey = ""
     @AppStorage("anthropic_model_id") private var anthropicModelId = "claude-3-5-sonnet-20241022"
 
     // OpenRouter configuration
-    @AppStorage("openrouter_api_key") private var openRouterKey = ""
+    @State private var openRouterKey = ""
     @AppStorage("openrouter_model_id") private var openRouterModelId = ""
 
     // Ollama configuration
@@ -34,9 +35,9 @@ struct ProvidersTabView: View {
     // AWS Bedrock configuration
     @AppStorage("aws_auth_method") private var awsAuthMethod = AWSAuthMethod.profile.rawValue
     @AppStorage("aws_profile") private var awsProfile = "default"
-    @AppStorage("aws_access_key") private var awsAccessKey = ""
-    @AppStorage("aws_secret_key") private var awsSecretKey = ""
-    @AppStorage("aws_bearer_token") private var awsBearerToken = ""
+    @State private var awsAccessKey = ""
+    @State private var awsSecretKey = ""
+    @State private var awsBearerToken = ""
     @AppStorage("aws_region") private var awsRegion = "us-east-1"
     @AppStorage("aws_model_id") private var awsModelId = "anthropic.claude-3-haiku-20240307-v1:0"
 
@@ -92,6 +93,27 @@ struct ProvidersTabView: View {
             .formStyle(.grouped)
             .padding()
         }
+        .task {
+            self.loadKeysFromKeychain()
+        }
+        .onChange(of: self.openAIKey) { _, newValue in
+            self.persistOpenAIKey(newValue)
+        }
+        .onChange(of: self.anthropicKey) { _, newValue in
+            self.persistAnthropicKey(newValue)
+        }
+        .onChange(of: self.openRouterKey) { _, newValue in
+            self.persistOpenRouterKey(newValue)
+        }
+        .onChange(of: self.awsAccessKey) { _, newValue in
+            self.persistAWSAccessKey(newValue)
+        }
+        .onChange(of: self.awsSecretKey) { _, newValue in
+            self.persistAWSSecretKey(newValue)
+        }
+        .onChange(of: self.awsBearerToken) { _, newValue in
+            self.persistAWSBearerToken(newValue)
+        }
     }
 }
 
@@ -100,4 +122,66 @@ struct ProvidersTabView: View {
 #Preview {
     ProvidersTabView()
         .frame(width: 450, height: 600)
+}
+
+// MARK: - Keychain Helpers
+
+@MainActor
+extension ProvidersTabView {
+    private func loadKeysFromKeychain() {
+        self.openAIKey = (try? self.apiKeyStore.loadOpenAIKey()) ?? ""
+        self.anthropicKey = (try? self.apiKeyStore.loadAnthropicKey()) ?? ""
+        self.openRouterKey = (try? self.apiKeyStore.loadOpenRouterKey()) ?? ""
+        self.awsAccessKey = (try? self.apiKeyStore.loadAWSAccessKey()) ?? ""
+        self.awsSecretKey = (try? self.apiKeyStore.loadAWSSecretKey()) ?? ""
+        self.awsBearerToken = (try? self.apiKeyStore.loadAWSBearerToken()) ?? ""
+    }
+
+    private func persistOpenAIKey(_ key: String) {
+        do {
+            try self.apiKeyStore.saveOpenAIKey(key)
+        } catch {
+            self.openAIValidation = .failure(error: error.localizedDescription)
+        }
+    }
+
+    private func persistAnthropicKey(_ key: String) {
+        do {
+            try self.apiKeyStore.saveAnthropicKey(key)
+        } catch {
+            self.anthropicValidation = .failure(error: error.localizedDescription)
+        }
+    }
+
+    private func persistOpenRouterKey(_ key: String) {
+        do {
+            try self.apiKeyStore.saveOpenRouterKey(key)
+        } catch {
+            self.openRouterValidation = .failure(error: error.localizedDescription)
+        }
+    }
+
+    private func persistAWSAccessKey(_ key: String) {
+        do {
+            try self.apiKeyStore.saveAWSAccessKey(key)
+        } catch {
+            self.bedrockValidation = .failure(error: error.localizedDescription)
+        }
+    }
+
+    private func persistAWSSecretKey(_ key: String) {
+        do {
+            try self.apiKeyStore.saveAWSSecretKey(key)
+        } catch {
+            self.bedrockValidation = .failure(error: error.localizedDescription)
+        }
+    }
+
+    private func persistAWSBearerToken(_ token: String) {
+        do {
+            try self.apiKeyStore.saveAWSBearerToken(token)
+        } catch {
+            self.bedrockValidation = .failure(error: error.localizedDescription)
+        }
+    }
 }
