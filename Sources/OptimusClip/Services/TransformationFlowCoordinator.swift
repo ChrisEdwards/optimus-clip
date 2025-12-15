@@ -153,6 +153,11 @@ public final class TransformationFlowCoordinator: ObservableObject {
     /// Delegate for receiving flow events.
     public weak var delegate: TransformationFlowDelegate?
 
+    // MARK: - Error Recovery
+
+    /// Error recovery manager for clipboard preservation and notifications.
+    private let errorRecoveryManager = ErrorRecoveryManager.shared
+
     // MARK: - State
 
     /// Queue that serializes transformation execution and cancellation.
@@ -216,17 +221,25 @@ public final class TransformationFlowCoordinator: ObservableObject {
         return true
     }
 
-    /// Handles a flow error by updating state, notifying delegate, and optionally beeping.
+    /// Handles a flow error by restoring clipboard, notifying user, and updating state.
+    ///
+    /// ## Error Recovery Flow
+    /// 1. Restore original clipboard content (never lose user data)
+    /// 2. Show appropriate notification to user
+    /// 3. Update state and notify delegate
+    /// 4. Play system beep for non-silent errors
     private func handleFlowError(_ error: TransformationFlowError) {
         self.lastError = error
         self.delegate?.transformationFlowDidFail(error: error)
 
-        // Only beep for real errors, not for benign conditions
-        switch error {
-        case .selfWriteDetected, .clipboardEmpty:
-            break // Silent - not real errors
-        default:
-            NSSound.beep()
+        // Check if this error should be handled silently
+        if self.errorRecoveryManager.shouldHandleSilently(error) {
+            return
+        }
+
+        // Handle error with recovery manager (restores clipboard, shows notification)
+        Task { @MainActor in
+            await self.errorRecoveryManager.handleError(error)
         }
     }
 
@@ -369,9 +382,18 @@ public final class TransformationFlowCoordinator: ObservableObject {
     }
 
     /// Execute the full transformation flow for a specific request.
+    ///
+    /// ## Error Recovery
+    /// Original clipboard content is captured BEFORE transformation begins.
+    /// If any step fails, the ErrorRecoveryManager will restore the original
+    /// content, ensuring no data loss.
     private func executeFlow(for request: TransformationRequest) async throws -> TransformationFlowOutcome {
         try self.checkAccessibilityPermission()
         try self.checkSelfWriteMarker()
+
+        // CRITICAL: Capture original clipboard BEFORE reading/transforming
+        // This enables recovery if transformation fails
+        self.errorRecoveryManager.captureOriginalClipboard()
 
         let clipboardText = try self.readClipboardText()
         try Task.checkCancellation()
@@ -388,6 +410,9 @@ public final class TransformationFlowCoordinator: ObservableObject {
         try Task.checkCancellation()
 
         try self.simulatePaste()
+
+        // Clear captured clipboard on success - no longer needed for recovery
+        self.errorRecoveryManager.clearOriginalClipboard()
 
         return TransformationFlowOutcome(
             request: request,
