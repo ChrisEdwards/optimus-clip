@@ -54,9 +54,9 @@ check: ## Run format check and lint (quiet output)
 check-quiet:
 	@. ./hack/run_silent.sh && print_main_header "Running Checks"
 	@. ./hack/run_silent.sh && print_header "OptimusClip" "Format check"
-	@. ./hack/run_silent.sh && run_with_quiet "Format check passed" "swiftformat . --lint"
+	@. ./hack/run_silent.sh && run_with_quiet "Format" "swiftformat . --lint"
 	@. ./hack/run_silent.sh && print_header "OptimusClip" "Lint"
-	@. ./hack/run_silent.sh && run_with_quiet "Lint passed" "swiftlint lint --strict"
+	@. ./hack/run_silent.sh && run_with_quiet "Lint" "swiftlint lint --strict"
 
 format: ## Auto-format code with swiftformat
 	@if [ -n "$$VERBOSE" ]; then \

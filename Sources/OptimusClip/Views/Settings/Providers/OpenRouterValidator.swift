@@ -11,29 +11,47 @@ enum OpenRouterValidator {
 
     /// Validates an OpenRouter API key by making a minimal test request.
     /// - Parameter apiKey: The API key to validate.
+    /// - Parameter modelId: Optional model ID to validate.
     /// - Returns: A success message with model count.
     /// - Throws: An error if validation fails.
-    static func validateAPIKey(_ apiKey: String) async throws -> String {
+    static func validateAPIKey(_ apiKey: String, modelId: String? = nil) async throws -> String {
         // Basic format validation
         guard apiKey.hasPrefix("sk-or-") else {
             throw OpenRouterValidationError.invalidFormat
         }
 
-        // Fetch models to validate the key and get model count
-        let modelCount = try await Self.fetchModelCount(apiKey: apiKey)
-        return "Connected (\(modelCount) models available)"
+        // Fetch models to validate the key
+        let models = try await Self.listModels(apiKey: apiKey)
+
+        // If a model is specified, verify it exists
+        if let modelId, !modelId.isEmpty {
+            let exists = models.contains { $0.id == modelId }
+            if !exists {
+                return "Connected (\(models.count) models) - Warning: '\(modelId)' not found"
+            }
+        }
+
+        return "Connected (\(models.count) models available)"
     }
 
-    /// Fetches the count of available models from OpenRouter.
+    /// Fetches available models from OpenRouter.
     /// - Parameter apiKey: The API key to use.
-    /// - Returns: The number of available models.
+    /// - Returns: Array of available models.
     /// - Throws: An error if the request fails.
-    private static func fetchModelCount(apiKey: String) async throws -> Int {
-        let request = try buildModelsRequest(apiKey: apiKey)
+    static func listModels(apiKey: String) async throws -> [OpenRouterModel] {
+        let request = try self.buildModelsRequest(apiKey: apiKey)
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            return try self.parseModelsResponse(data: data, response: response)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw OpenRouterValidationError.unexpectedResponse
+            }
+
+            try self.validateStatusCode(httpResponse.statusCode)
+
+            let modelsResponse = try JSONDecoder().decode(OpenRouterModelsResponse.self, from: data)
+            return modelsResponse.data.sorted { $0.id < $1.id }
         } catch let error as OpenRouterValidationError {
             throw error
         } catch {
@@ -51,17 +69,6 @@ enum OpenRouterValidator {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
         return request
-    }
-
-    private static func parseModelsResponse(data: Data, response: URLResponse) throws -> Int {
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OpenRouterValidationError.unexpectedResponse
-        }
-
-        try self.validateStatusCode(httpResponse.statusCode)
-
-        let modelsResponse = try JSONDecoder().decode(OpenRouterModelsResponse.self, from: data)
-        return modelsResponse.data.count
     }
 
     private static func validateStatusCode(_ statusCode: Int) throws {

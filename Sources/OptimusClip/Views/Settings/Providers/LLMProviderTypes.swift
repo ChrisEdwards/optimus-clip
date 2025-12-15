@@ -44,6 +44,7 @@ enum LLMProvider: String, CaseIterable, Identifiable {
 enum AWSAuthMethod: String, CaseIterable, Identifiable {
     case profile
     case keys
+    case bearerToken
 
     var id: String { self.rawValue }
 
@@ -51,6 +52,7 @@ enum AWSAuthMethod: String, CaseIterable, Identifiable {
         switch self {
         case .profile: "AWS Profile"
         case .keys: "Access Keys"
+        case .bearerToken: "Bearer Token"
         }
     }
 }

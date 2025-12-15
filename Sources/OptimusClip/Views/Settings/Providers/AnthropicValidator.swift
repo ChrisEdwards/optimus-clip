@@ -5,11 +5,26 @@ import LLMChatAnthropic
 
 /// Validates Anthropic API credentials by making a test API call.
 enum AnthropicValidator {
+    /// Known Anthropic models (Anthropic doesn't have a public models API).
+    static let knownModels: [AnthropicModel] = [
+        // Claude 4 models
+        AnthropicModel(id: "claude-sonnet-4-20250514", name: "Claude Sonnet 4", family: "Claude 4"),
+        AnthropicModel(id: "claude-opus-4-20250514", name: "Claude Opus 4", family: "Claude 4"),
+        // Claude 3.5 models
+        AnthropicModel(id: "claude-3-5-sonnet-20241022", name: "Claude 3.5 Sonnet", family: "Claude 3.5"),
+        AnthropicModel(id: "claude-3-5-haiku-20241022", name: "Claude 3.5 Haiku", family: "Claude 3.5"),
+        // Claude 3 models
+        AnthropicModel(id: "claude-3-opus-20240229", name: "Claude 3 Opus", family: "Claude 3"),
+        AnthropicModel(id: "claude-3-sonnet-20240229", name: "Claude 3 Sonnet", family: "Claude 3"),
+        AnthropicModel(id: "claude-3-haiku-20240307", name: "Claude 3 Haiku", family: "Claude 3")
+    ]
+
     /// Validates an Anthropic API key by making a minimal test request.
     /// - Parameter apiKey: The API key to validate.
+    /// - Parameter modelId: Optional model ID to use for validation.
     /// - Returns: A success message describing the validated key.
     /// - Throws: An error if validation fails.
-    static func validateAPIKey(_ apiKey: String) async throws -> String {
+    static func validateAPIKey(_ apiKey: String, modelId: String? = nil) async throws -> String {
         // Basic format validation
         guard apiKey.hasPrefix("sk-ant-") else {
             throw AnthropicValidationError.invalidFormat
@@ -20,8 +35,9 @@ enum AnthropicValidator {
         let messages = [ChatMessage(role: .user, content: "Hi")]
 
         do {
-            // Use a cheap, fast model for validation
-            let completion = try await chat.send(model: "claude-3-haiku-20240307", messages: messages)
+            // Use specified model or default to haiku for validation
+            let model = modelId ?? "claude-3-haiku-20240307"
+            let completion = try await chat.send(model: model, messages: messages)
 
             // Extract model info from response
             let modelUsed = completion.model
@@ -29,6 +45,12 @@ enum AnthropicValidator {
         } catch let error as LLMChatAnthropicError {
             throw Self.mapError(error)
         }
+    }
+
+    /// Returns the list of known Anthropic models.
+    /// Note: Anthropic doesn't have a public models API, so this is a curated list.
+    static func listModels() -> [AnthropicModel] {
+        self.knownModels
     }
 
     private static func mapError(_ error: LLMChatAnthropicError) -> AnthropicValidationError {
@@ -54,6 +76,15 @@ enum AnthropicValidator {
             .unexpectedResponse
         }
     }
+}
+
+// MARK: - Anthropic Model Type
+
+/// Represents an Anthropic model.
+struct AnthropicModel: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let family: String
 }
 
 /// Errors that can occur during Anthropic API key validation.

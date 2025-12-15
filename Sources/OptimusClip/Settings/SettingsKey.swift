@@ -64,6 +64,12 @@ enum SettingsKey {
     /// AWS region for Bedrock API calls.
     static let awsRegion = "aws_region"
 
+    /// AWS bearer token for token-based authentication (AWS_BEARER_TOKEN_BEDROCK).
+    static let awsBearerToken = "aws_bearer_token"
+
+    /// AWS Bedrock model ID.
+    static let awsModelId = "aws_model_id"
+
     // MARK: - Transformations
 
     /// JSON-encoded array of TransformationConfig objects.

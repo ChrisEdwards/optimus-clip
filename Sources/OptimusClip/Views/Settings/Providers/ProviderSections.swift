@@ -1,11 +1,75 @@
+// swiftlint:disable file_length
+import AppKit
 import SwiftUI
+
+// MARK: - Native ComboBox
+
+/// A SwiftUI wrapper for NSComboBox providing native autocomplete functionality.
+struct ComboBox: NSViewRepresentable {
+    @Binding var text: String
+    var items: [String]
+    var placeholder: String
+
+    func makeNSView(context: Context) -> NSComboBox {
+        let comboBox = NSComboBox()
+        comboBox.usesDataSource = false
+        comboBox.completes = true
+        comboBox.delegate = context.coordinator
+        comboBox.placeholderString = self.placeholder
+        comboBox.addItems(withObjectValues: self.items)
+        comboBox.stringValue = self.text
+        return comboBox
+    }
+
+    func updateNSView(_ nsView: NSComboBox, context _: Context) {
+        // Update items if changed
+        let currentItems = nsView.objectValues.compactMap { $0 as? String }
+        if currentItems != self.items {
+            nsView.removeAllItems()
+            nsView.addItems(withObjectValues: self.items)
+        }
+
+        // Update text if changed externally
+        if nsView.stringValue != self.text {
+            nsView.stringValue = self.text
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSComboBoxDelegate, NSTextFieldDelegate {
+        var parent: ComboBox
+
+        init(_ parent: ComboBox) {
+            self.parent = parent
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let comboBox = obj.object as? NSComboBox else { return }
+            self.parent.text = comboBox.stringValue
+        }
+
+        func comboBoxSelectionDidChange(_ notification: Notification) {
+            guard let comboBox = notification.object as? NSComboBox,
+                  comboBox.indexOfSelectedItem >= 0,
+                  let selected = comboBox.objectValueOfSelectedItem as? String else { return }
+            self.parent.text = selected
+        }
+    }
+}
 
 // MARK: - OpenAI Provider Section
 
 /// Configuration section for OpenAI API credentials.
 struct OpenAIProviderSection: View {
     @Binding var apiKey: String
+    @Binding var modelId: String
     @Binding var validationState: ValidationState
+
+    @State private var availableModels: [OpenAIModel] = []
+    @State private var isLoadingModels = false
 
     var body: some View {
         Section("OpenAI") {
@@ -15,13 +79,56 @@ struct OpenAIProviderSection: View {
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: self.apiKey) { _, _ in
                             self.validationState = .idle
+                            self.availableModels = []
+                        }
+                }
+
+                // Model selection
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Model")
+                            .frame(width: 50, alignment: .leading)
+
+                        ComboBox(
+                            text: self.$modelId,
+                            items: self.availableModels.map(\.id),
+                            placeholder: "gpt-4o-mini"
+                        )
+                        .frame(height: 24)
+                        .onChange(of: self.modelId) { _, _ in
+                            self.validationState = .idle
                         }
 
+                        Button(action: self.fetchModels) {
+                            if self.isLoadingModels {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Fetch")
+                            }
+                        }
+                        .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+                    }
+
+                    if self.availableModels.isEmpty {
+                        Text("Click Fetch to load available models")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("\(self.availableModels.count) models available")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                HStack {
                     ValidateButton(
                         state: self.validationState,
-                        isDisabled: self.apiKey.isEmpty,
+                        isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
                         action: self.validateAPIKey
                     )
+
+                    Spacer()
                 }
 
                 ValidationStatusView(state: self.validationState)
@@ -31,12 +138,34 @@ struct OpenAIProviderSection: View {
         }
     }
 
+    private func fetchModels() {
+        self.isLoadingModels = true
+
+        Task {
+            do {
+                let models = try await OpenAIValidator.listModels(apiKey: self.apiKey)
+                await MainActor.run {
+                    self.availableModels = models
+                    self.isLoadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingModels = false
+                    self.validationState = .failure(error: "Failed to fetch models: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private func validateAPIKey() {
         self.validationState = .validating
 
         Task {
             do {
-                let result = try await OpenAIValidator.validateAPIKey(self.apiKey)
+                let result = try await OpenAIValidator.validateAPIKey(
+                    self.apiKey,
+                    modelId: self.modelId.isEmpty ? nil : self.modelId
+                )
                 await MainActor.run {
                     self.validationState = .success(message: result)
                 }
@@ -54,7 +183,10 @@ struct OpenAIProviderSection: View {
 /// Configuration section for Anthropic API credentials.
 struct AnthropicProviderSection: View {
     @Binding var apiKey: String
+    @Binding var modelId: String
     @Binding var validationState: ValidationState
+
+    private let availableModels = AnthropicValidator.knownModels
 
     var body: some View {
         Section("Anthropic") {
@@ -65,12 +197,38 @@ struct AnthropicProviderSection: View {
                         .onChange(of: self.apiKey) { _, _ in
                             self.validationState = .idle
                         }
+                }
 
+                // Model selection (static list - Anthropic has no public models API)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Model")
+                            .frame(width: 50, alignment: .leading)
+
+                        ComboBox(
+                            text: self.$modelId,
+                            items: self.availableModels.map(\.id),
+                            placeholder: "claude-3-5-sonnet-..."
+                        )
+                        .frame(height: 24)
+                        .onChange(of: self.modelId) { _, _ in
+                            self.validationState = .idle
+                        }
+                    }
+
+                    Text("\(self.availableModels.count) models available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
                     ValidateButton(
                         state: self.validationState,
-                        isDisabled: self.apiKey.isEmpty,
+                        isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
                         action: self.validateAPIKey
                     )
+
+                    Spacer()
                 }
 
                 ValidationStatusView(state: self.validationState)
@@ -85,7 +243,10 @@ struct AnthropicProviderSection: View {
 
         Task {
             do {
-                let result = try await AnthropicValidator.validateAPIKey(self.apiKey)
+                let result = try await AnthropicValidator.validateAPIKey(
+                    self.apiKey,
+                    modelId: self.modelId.isEmpty ? nil : self.modelId
+                )
                 await MainActor.run {
                     self.validationState = .success(message: result)
                 }
@@ -103,7 +264,11 @@ struct AnthropicProviderSection: View {
 /// Configuration section for OpenRouter API credentials.
 struct OpenRouterProviderSection: View {
     @Binding var apiKey: String
+    @Binding var modelId: String
     @Binding var validationState: ValidationState
+
+    @State private var availableModels: [OpenRouterModel] = []
+    @State private var isLoadingModels = false
 
     var body: some View {
         Section("OpenRouter") {
@@ -113,22 +278,80 @@ struct OpenRouterProviderSection: View {
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: self.apiKey) { _, _ in
                             self.validationState = .idle
+                            self.availableModels = []
+                        }
+                }
+
+                // Model selection
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Model")
+                            .frame(width: 50, alignment: .leading)
+
+                        ComboBox(
+                            text: self.$modelId,
+                            items: self.availableModels.map(\.id),
+                            placeholder: "anthropic/claude-3.5-sonnet"
+                        )
+                        .frame(height: 24)
+                        .onChange(of: self.modelId) { _, _ in
+                            self.validationState = .idle
                         }
 
+                        Button(action: self.fetchModels) {
+                            if self.isLoadingModels {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Fetch")
+                            }
+                        }
+                        .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+                    }
+
+                    if self.availableModels.isEmpty {
+                        Text("Click Fetch to load 100+ available models")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("\(self.availableModels.count) models available")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                HStack {
                     ValidateButton(
                         state: self.validationState,
                         isDisabled: self.apiKey.isEmpty,
                         action: self.validateAPIKey
                     )
+
+                    Spacer()
                 }
 
                 ValidationStatusView(state: self.validationState)
 
-                Text("Access 100+ models through a unified API")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
                 ProviderHelpLink(provider: .openRouter)
+            }
+        }
+    }
+
+    private func fetchModels() {
+        self.isLoadingModels = true
+
+        Task {
+            do {
+                let models = try await OpenRouterValidator.listModels(apiKey: self.apiKey)
+                await MainActor.run {
+                    self.availableModels = models
+                    self.isLoadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingModels = false
+                    self.validationState = .failure(error: "Failed to fetch models: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -138,7 +361,10 @@ struct OpenRouterProviderSection: View {
 
         Task {
             do {
-                let result = try await OpenRouterValidator.validateAPIKey(self.apiKey)
+                let result = try await OpenRouterValidator.validateAPIKey(
+                    self.apiKey,
+                    modelId: self.modelId.isEmpty ? nil : self.modelId
+                )
                 await MainActor.run {
                     self.validationState = .success(message: result)
                 }
@@ -157,7 +383,11 @@ struct OpenRouterProviderSection: View {
 struct OllamaProviderSection: View {
     @Binding var host: String
     @Binding var port: String
+    @Binding var modelId: String
     @Binding var validationState: ValidationState
+
+    @State private var availableModels: [OllamaModel] = []
+    @State private var isLoadingModels = false
 
     var body: some View {
         Section("Ollama (Local)") {
@@ -167,6 +397,7 @@ struct OllamaProviderSection: View {
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: self.host) { _, _ in
                             self.validationState = .idle
+                            self.availableModels = []
                         }
 
                     TextField("Port", text: self.$port, prompt: Text("11434"))
@@ -174,7 +405,46 @@ struct OllamaProviderSection: View {
                         .frame(width: 80)
                         .onChange(of: self.port) { _, _ in
                             self.validationState = .idle
+                            self.availableModels = []
                         }
+                }
+
+                // Model selection
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Model")
+                            .frame(width: 50, alignment: .leading)
+
+                        ComboBox(
+                            text: self.$modelId,
+                            items: self.availableModels.map(\.name),
+                            placeholder: "llama3.2"
+                        )
+                        .frame(height: 24)
+                        .onChange(of: self.modelId) { _, _ in
+                            self.validationState = .idle
+                        }
+
+                        Button(action: self.fetchModels) {
+                            if self.isLoadingModels {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Fetch")
+                            }
+                        }
+                        .disabled(self.isLoadingModels || self.host.isEmpty)
+                    }
+
+                    if self.availableModels.isEmpty {
+                        Text("Click Fetch to load locally installed models")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("\(self.availableModels.count) models installed")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 HStack {
@@ -199,12 +469,35 @@ struct OllamaProviderSection: View {
         }
     }
 
-    func testConnection() {
+    private func fetchModels() {
+        self.isLoadingModels = true
+
+        Task {
+            do {
+                let models = try await OllamaValidator.listModels(host: self.host, port: self.port)
+                await MainActor.run {
+                    self.availableModels = models
+                    self.isLoadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingModels = false
+                    self.validationState = .failure(error: "Failed to fetch models: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func testConnection() {
         self.validationState = .validating
 
         Task {
             do {
-                let result = try await OllamaValidator.testConnection(host: self.host, port: self.port)
+                let result = try await OllamaValidator.testConnection(
+                    host: self.host,
+                    port: self.port,
+                    modelId: self.modelId.isEmpty ? nil : self.modelId
+                )
                 await MainActor.run {
                     self.validationState = .success(message: result)
                 }
@@ -225,18 +518,43 @@ struct AWSBedrockProviderSection: View {
     @Binding var profile: String
     @Binding var accessKey: String
     @Binding var secretKey: String
+    @Binding var bearerToken: String
     @Binding var region: String
+    @Binding var modelId: String
     @Binding var validationState: ValidationState
 
+    @State private var availableModels: [BedrockModel] = []
+    @State private var isLoadingModels = false
+
+    // All AWS regions where Bedrock is available
     private let awsRegions = [
+        // US regions
         "us-east-1",
+        "us-east-2",
+        "us-west-1",
         "us-west-2",
+        // Europe regions
+        "eu-central-1",
         "eu-west-1",
         "eu-west-2",
-        "eu-central-1",
-        "ap-northeast-1",
+        "eu-west-3",
+        "eu-north-1",
+        // Asia Pacific regions
+        "ap-south-1",
         "ap-southeast-1",
-        "ap-southeast-2"
+        "ap-southeast-2",
+        "ap-northeast-1",
+        "ap-northeast-2",
+        "ap-northeast-3",
+        // South America
+        "sa-east-1",
+        // Canada
+        "ca-central-1",
+        // Middle East
+        "me-south-1",
+        "me-central-1",
+        // Africa
+        "af-south-1"
     ]
 
     var body: some View {
@@ -252,10 +570,13 @@ struct AWSBedrockProviderSection: View {
                     self.validationState = .idle
                 }
 
-                if self.authMethod == .profile {
+                switch self.authMethod {
+                case .profile:
                     self.profileAuthFields
-                } else {
+                case .keys:
                     self.keysAuthFields
+                case .bearerToken:
+                    self.bearerTokenAuthFields
                 }
 
                 Picker("Region", selection: self.$region) {
@@ -265,6 +586,45 @@ struct AWSBedrockProviderSection: View {
                 }
                 .onChange(of: self.region) { _, _ in
                     self.validationState = .idle
+                    self.availableModels = []
+                }
+
+                // Model selection with native combobox
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Model")
+                            .frame(width: 60, alignment: .leading)
+
+                        ComboBox(
+                            text: self.$modelId,
+                            items: self.availableModels.map(\.id),
+                            placeholder: "anthropic.claude-3-..."
+                        )
+                        .frame(height: 24)
+                        .onChange(of: self.modelId) { _, _ in
+                            self.validationState = .idle
+                        }
+
+                        Button(action: self.fetchModels) {
+                            if self.isLoadingModels {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Fetch")
+                            }
+                        }
+                        .disabled(self.isLoadingModels || !self.canFetchModels)
+                    }
+
+                    if self.availableModels.isEmpty {
+                        Text("Click Fetch to load available models, or type a model ID directly")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("\(self.availableModels.count) models available")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 HStack {
@@ -316,11 +676,76 @@ struct AWSBedrockProviderSection: View {
         }
     }
 
+    @ViewBuilder
+    private var bearerTokenAuthFields: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SecureField("Bearer Token", text: self.$bearerToken, prompt: Text("..."))
+                .textFieldStyle(.roundedBorder)
+                .onChange(of: self.bearerToken) { _, _ in
+                    self.validationState = .idle
+                }
+
+            Text("Set via AWS_BEARER_TOKEN_BEDROCK environment variable")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private var canFetchModels: Bool {
+        switch self.authMethod {
+        case .profile:
+            !self.profile.isEmpty
+        case .keys:
+            !self.accessKey.isEmpty && !self.secretKey.isEmpty
+        case .bearerToken:
+            !self.bearerToken.isEmpty
+        }
+    }
+
+    private func fetchModels() {
+        self.isLoadingModels = true
+
+        Task {
+            do {
+                let models: [BedrockModel] = switch self.authMethod {
+                case .profile:
+                    try await BedrockValidator.listModelsWithProfile(self.profile, region: self.region)
+                case .keys:
+                    try await BedrockValidator.listModels(
+                        accessKey: self.accessKey,
+                        secretKey: self.secretKey,
+                        region: self.region
+                    )
+                case .bearerToken:
+                    try await BedrockValidator.listModelsWithBearerToken(
+                        bearerToken: self.bearerToken,
+                        region: self.region
+                    )
+                }
+                await MainActor.run {
+                    self.availableModels = models
+                    self.isLoadingModels = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoadingModels = false
+                    self.validationState = .failure(error: "Failed to fetch models: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
     private var isValidationDisabled: Bool {
-        if self.authMethod == .profile {
+        if self.modelId.isEmpty {
+            return true
+        }
+        return switch self.authMethod {
+        case .profile:
             self.profile.isEmpty
-        } else {
+        case .keys:
             self.accessKey.isEmpty || self.secretKey.isEmpty
+        case .bearerToken:
+            self.bearerToken.isEmpty
         }
     }
 
@@ -329,13 +754,25 @@ struct AWSBedrockProviderSection: View {
 
         Task {
             do {
-                let result: String = if self.authMethod == .profile {
-                    try await BedrockValidator.validateProfile(self.profile, region: self.region)
-                } else {
+                let result: String = switch self.authMethod {
+                case .profile:
+                    try await BedrockValidator.validateProfile(
+                        self.profile,
+                        region: self.region,
+                        modelId: self.modelId
+                    )
+                case .keys:
                     try await BedrockValidator.validateKeys(
                         accessKey: self.accessKey,
                         secretKey: self.secretKey,
-                        region: self.region
+                        region: self.region,
+                        modelId: self.modelId
+                    )
+                case .bearerToken:
+                    try await BedrockValidator.validateBearerToken(
+                        self.bearerToken,
+                        region: self.region,
+                        modelId: self.modelId
                     )
                 }
                 await MainActor.run {

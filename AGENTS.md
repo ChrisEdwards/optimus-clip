@@ -271,8 +271,8 @@ optimus-clip/
 ├── Info.plist                # App configuration template
 ├── .swiftformat              # Code formatting rules
 ├── .swiftlint.yml            # Linting rules
-├── AGENTS.md                 # This file
-└── CLAUDE.md                 # Points here
+├── AGENTS.md                 # Project guidelines (this file)
+└── CLAUDE.md                 # Symlink to AGENTS.md
 ```
 
 **Why split OptimusClip and OptimusClipCore?**

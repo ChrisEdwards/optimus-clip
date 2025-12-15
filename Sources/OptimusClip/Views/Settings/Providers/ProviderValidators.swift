@@ -7,9 +7,10 @@ import LLMChatOpenAI
 enum OpenAIValidator {
     /// Validates an OpenAI API key by making a minimal test request.
     /// - Parameter apiKey: The API key to validate.
+    /// - Parameter modelId: Optional model ID to use for validation.
     /// - Returns: A success message describing the validated key.
     /// - Throws: An error if validation fails.
-    static func validateAPIKey(_ apiKey: String) async throws -> String {
+    static func validateAPIKey(_ apiKey: String, modelId: String? = nil) async throws -> String {
         // Basic format validation
         guard apiKey.hasPrefix("sk-") else {
             throw OpenAIValidationError.invalidFormat
@@ -20,8 +21,9 @@ enum OpenAIValidator {
         let messages = [ChatMessage(role: .user, content: "Hi")]
 
         do {
-            // Use a cheap, fast model for validation
-            let completion = try await chat.send(model: "gpt-4o-mini", messages: messages)
+            // Use specified model or default to gpt-4o-mini for validation
+            let model = modelId ?? "gpt-4o-mini"
+            let completion = try await chat.send(model: model, messages: messages)
 
             // Extract model info from response
             let modelUsed = completion.model
@@ -29,6 +31,50 @@ enum OpenAIValidator {
         } catch let error as LLMChatOpenAIError {
             throw Self.mapError(error)
         }
+    }
+
+    /// Fetches available models from OpenAI API.
+    /// - Parameter apiKey: The API key to use.
+    /// - Returns: Array of available model IDs.
+    static func listModels(apiKey: String) async throws -> [OpenAIModel] {
+        guard let url = URL(string: "https://api.openai.com/v1/models") else {
+            throw OpenAIValidationError.unexpectedResponse
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 15
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw OpenAIValidationError.unexpectedResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if httpResponse.statusCode == 401 {
+                throw OpenAIValidationError.invalidAPIKey
+            }
+            throw OpenAIValidationError.apiError(httpResponse.statusCode, "Failed to fetch models")
+        }
+
+        let modelsResponse = try JSONDecoder().decode(OpenAIModelsResponse.self, from: data)
+        // Filter to only chat/completion models, sorted by ID
+        return modelsResponse.data
+            .filter { Self.isChatModel($0.id) }
+            .sorted { $0.id < $1.id }
+    }
+
+    /// Checks if a model ID is a chat/completion model (not embedding, tts, etc.)
+    private static func isChatModel(_ modelId: String) -> Bool {
+        let chatPrefixes = ["gpt-", "o1-", "o3-", "chatgpt-"]
+        let excludePrefixes = ["gpt-4-vision", "whisper", "tts", "dall-e", "text-embedding"]
+
+        let isChat = chatPrefixes.contains { modelId.lowercased().hasPrefix($0) }
+        let isExcluded = excludePrefixes.contains { modelId.lowercased().contains($0) }
+
+        return isChat && !isExcluded
     }
 
     private static func mapError(_ error: LLMChatOpenAIError) -> OpenAIValidationError {
@@ -53,6 +99,24 @@ enum OpenAIValidator {
         case .streamError:
             .unexpectedResponse
         }
+    }
+}
+
+// MARK: - OpenAI API Response Types
+
+/// Response from OpenAI /v1/models endpoint.
+struct OpenAIModelsResponse: Decodable {
+    let data: [OpenAIModel]
+}
+
+/// Model information from OpenAI API.
+struct OpenAIModel: Decodable, Identifiable, Hashable {
+    let id: String
+    let ownedBy: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case ownedBy = "owned_by"
     }
 }
 
@@ -97,16 +161,46 @@ enum OllamaValidator {
     /// - Parameters:
     ///   - host: The Ollama server host (e.g., "http://localhost")
     ///   - port: The Ollama server port (e.g., "11434")
+    ///   - modelId: Optional model ID to validate
     /// - Returns: A success message with model count.
     /// - Throws: An error if connection fails.
-    static func testConnection(host: String, port: String) async throws -> String {
-        let url = try buildURL(host: host, port: port)
+    static func testConnection(host: String, port: String, modelId: String? = nil) async throws -> String {
+        let models = try await self.listModels(host: host, port: port)
+        let message = self.formatModelList(models)
+
+        // If a model is specified, verify it exists
+        if let modelId, !modelId.isEmpty {
+            let exists = models.contains { $0.name == modelId || $0.name.hasPrefix(modelId) }
+            if !exists {
+                return "\(message) - Warning: '\(modelId)' not found locally"
+            }
+        }
+
+        return message
+    }
+
+    /// Fetches available models from Ollama server.
+    /// - Parameters:
+    ///   - host: The Ollama server host (e.g., "http://localhost")
+    ///   - port: The Ollama server port (e.g., "11434")
+    /// - Returns: Array of available models.
+    static func listModels(host: String, port: String) async throws -> [OllamaModel] {
+        let url = try self.buildURL(host: host, port: port)
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-            return try self.parseResponse(data: data, response: response)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw OllamaValidationError.unexpectedResponse
+            }
+            guard httpResponse.statusCode == 200 else {
+                throw OllamaValidationError.serverError(httpResponse.statusCode)
+            }
+
+            let tagsResponse = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
+            return tagsResponse.models.sorted { $0.name < $1.name }
         } catch let error as OllamaValidationError {
             throw error
         } catch {
@@ -121,18 +215,6 @@ enum OllamaValidator {
             throw OllamaValidationError.invalidEndpoint
         }
         return url
-    }
-
-    private static func parseResponse(data: Data, response: URLResponse) throws -> String {
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw OllamaValidationError.unexpectedResponse
-        }
-        guard httpResponse.statusCode == 200 else {
-            throw OllamaValidationError.serverError(httpResponse.statusCode)
-        }
-
-        let tagsResponse = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
-        return self.formatModelList(tagsResponse.models)
     }
 
     private static func formatModelList(_ models: [OllamaModel]) -> String {

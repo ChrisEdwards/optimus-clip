@@ -16,6 +16,7 @@ public enum LLMCredentials: Sendable {
     case openRouter(apiKey: String)
     case ollama(endpoint: URL)
     case awsBedrock(accessKey: String, secretKey: String, region: String)
+    case awsBedrockBearerToken(bearerToken: String, region: String)
 }
 
 // MARK: - Request / Response

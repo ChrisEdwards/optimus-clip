@@ -49,9 +49,6 @@ struct TransformationEditorView: View {
                         }
                     }
 
-                    TextField("Model", text: self.modelBinding)
-                        .textFieldStyle(.roundedBorder)
-
                     VStack(alignment: .leading, spacing: 8) {
                         Text("System Prompt")
                             .font(.headline)
@@ -77,14 +74,6 @@ struct TransformationEditorView: View {
             set: { self.transformation.provider = $0.isEmpty ? nil : $0 }
         )
     }
-
-    /// Binding for model (handles nil -> empty string conversion).
-    private var modelBinding: Binding<String> {
-        Binding(
-            get: { self.transformation.model ?? "" },
-            set: { self.transformation.model = $0.isEmpty ? nil : $0 }
-        )
-    }
 }
 
 // MARK: - Preview
@@ -96,7 +85,6 @@ struct TransformationEditorView: View {
             type: .llm,
             isEnabled: true,
             provider: "anthropic",
-            model: "claude-3-haiku-20240307",
             systemPrompt: "Clean up the text."
         ))
     )
