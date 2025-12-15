@@ -392,17 +392,26 @@ struct OllamaProviderSection: View {
     var body: some View {
         Section("Ollama (Local)") {
             VStack(alignment: .leading, spacing: 8) {
+                // Host row
                 HStack {
-                    TextField("Host", text: self.$host, prompt: Text("http://localhost"))
+                    Text("Host")
+                        .frame(width: 50, alignment: .leading)
+
+                    TextField("", text: self.$host, prompt: Text("http://localhost"))
                         .textFieldStyle(.roundedBorder)
                         .onChange(of: self.host) { _, _ in
                             self.validationState = .idle
                             self.availableModels = []
                         }
+                }
 
-                    TextField("Port", text: self.$port, prompt: Text("11434"))
+                // Port row
+                HStack {
+                    Text("Port")
+                        .frame(width: 50, alignment: .leading)
+
+                    TextField("", text: self.$port, prompt: Text("11434"))
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 80)
                         .onChange(of: self.port) { _, _ in
                             self.validationState = .idle
                             self.availableModels = []
@@ -410,41 +419,39 @@ struct OllamaProviderSection: View {
                 }
 
                 // Model selection
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Model")
-                            .frame(width: 50, alignment: .leading)
+                HStack {
+                    Text("Model")
+                        .frame(width: 50, alignment: .leading)
 
-                        ComboBox(
-                            text: self.$modelId,
-                            items: self.availableModels.map(\.name),
-                            placeholder: "llama3.2"
-                        )
-                        .frame(height: 24)
-                        .onChange(of: self.modelId) { _, _ in
-                            self.validationState = .idle
-                        }
-
-                        Button(action: self.fetchModels) {
-                            if self.isLoadingModels {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Text("Fetch")
-                            }
-                        }
-                        .disabled(self.isLoadingModels || self.host.isEmpty)
+                    ComboBox(
+                        text: self.$modelId,
+                        items: self.availableModels.map(\.name),
+                        placeholder: "llama3.2"
+                    )
+                    .frame(height: 24)
+                    .onChange(of: self.modelId) { _, _ in
+                        self.validationState = .idle
                     }
 
-                    if self.availableModels.isEmpty {
-                        Text("Click Fetch to load locally installed models")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("\(self.availableModels.count) models installed")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    Button(action: self.fetchModels) {
+                        if self.isLoadingModels {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Fetch")
+                        }
                     }
+                    .disabled(self.isLoadingModels || self.host.isEmpty)
+                }
+
+                if self.availableModels.isEmpty {
+                    Text("Click Fetch to load locally installed models")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(self.availableModels.count) models installed")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
 
                 HStack {
