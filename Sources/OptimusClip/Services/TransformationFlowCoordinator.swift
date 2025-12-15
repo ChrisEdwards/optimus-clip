@@ -176,6 +176,10 @@ public final class TransformationFlowCoordinator: ObservableObject {
     /// The last error that occurred, if any.
     @Published public private(set) var lastError: TransformationFlowError?
 
+    /// Captured input text from the current transformation.
+    /// Used for failure history logging when transformation fails after reading clipboard.
+    private var capturedInputText: String?
+
     // MARK: - Initialization
 
     /// Creates a new transformation flow coordinator.
@@ -359,15 +363,15 @@ public final class TransformationFlowCoordinator: ObservableObject {
             )
         } catch is CancellationError {
             self.transition(to: .cancelled(request: request))
-        } catch let flowError as TransformationFlowError {
-            self.transition(to: .failed(request: request, error: flowError))
-            self.handleFlowError(flowError)
         } catch {
-            let flowError = TransformationFlowError.transformationFailed(error)
+            let flowError = (error as? TransformationFlowError)
+                ?? TransformationFlowError.transformationFailed(error)
+            self.recordHistoryFailure(for: request, error: flowError, inputText: self.capturedInputText)
             self.transition(to: .failed(request: request, error: flowError))
             self.handleFlowError(flowError)
         }
 
+        self.capturedInputText = nil
         // Clear pipeline after completion to avoid reuse across triggers.
         self.pipeline = nil
         await self.queue.finish()
@@ -400,6 +404,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
         self.errorRecoveryManager.captureOriginalClipboard()
 
         let clipboardText = try self.readClipboardText()
+        self.capturedInputText = clipboardText
         try Task.checkCancellation()
 
         let (transformedText, descriptor) = try await self.performTransformation(
