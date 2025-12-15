@@ -1,6 +1,9 @@
 import AppKit
 import KeyboardShortcuts
 import OptimusClipCore
+import os.log
+
+private let logger = Logger(subsystem: "com.optimusclip", category: "HotkeyManager")
 
 /// Central manager for global hotkey registration and handling.
 ///
@@ -203,8 +206,11 @@ final class HotkeyManager: ObservableObject {
     ///
     /// - Parameter name: The KeyboardShortcuts.Name that was triggered.
     private func handleBuiltInHotkey(_ name: KeyboardShortcuts.Name) async {
+        logger.info("Built-in hotkey triggered: \(name.rawValue)")
+
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
+            logger.warning("Hotkey ignored - already processing")
             NSSound.beep()
             return
         }
@@ -212,22 +218,23 @@ final class HotkeyManager: ObservableObject {
         // Configure pipeline based on which hotkey was pressed
         switch name {
         case .quickFix:
-            // Quick Fix: strip whitespace + smart unwrap
+            logger.debug("Using Quick Fix pipeline")
             self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
         case .smartFix:
-            // Smart Fix: LLM-based transformation with default settings
+            logger.debug("Creating Smart Fix LLM pipeline")
             guard let pipeline = self.createSmartFixPipeline() else {
-                // LLM not configured - beep and abort
+                logger.error("Smart Fix failed: No LLM provider configured. Add API key in Settings > Providers.")
                 NSSound.beep()
                 return
             }
             self.flowCoordinator.pipeline = pipeline
         default:
-            // Unknown built-in shortcut, use identity (no-op)
+            logger.warning("Unknown built-in shortcut: \(name.rawValue)")
             self.flowCoordinator.pipeline = nil
         }
 
         // Execute the transformation flow
+        logger.debug("Executing transformation flow")
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 
@@ -242,15 +249,19 @@ final class HotkeyManager: ObservableObject {
 
         // Try the default provider (Anthropic) first
         if let client = try? factory.client(for: .anthropic), client.isConfigured() {
+            logger.info("Using Anthropic for Smart Fix")
             return self.makeSmartFixPipeline(client: client, model: "claude-3-haiku-20240307")
         }
+        logger.debug("Anthropic not configured, checking other providers")
 
         // Fall back to any configured provider
         guard let configuredClients = try? factory.configuredClients(),
               let (provider, client) = configuredClients.first else {
+            logger.warning("No LLM providers configured in Keychain")
             return nil
         }
 
+        logger.info("Using fallback provider: \(provider.rawValue)")
         return self.makeSmartFixPipeline(client: client, model: Self.defaultModel(for: provider))
     }
 
