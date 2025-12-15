@@ -150,6 +150,9 @@ public final class TransformationFlowCoordinator: ObservableObject {
     /// Defaults to IdentityTransformation (no-op).
     public var transformation: any Transformation = IdentityTransformation()
 
+    /// History store used for logging transformation events.
+    public var historyStore: HistoryStore?
+
     /// Delegate for receiving flow events.
     public weak var delegate: TransformationFlowDelegate?
 
@@ -348,6 +351,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
 
         do {
             let outcome = try await task.value
+            self.recordHistoryEntry(for: outcome)
             self.transition(to: .completed(outcome: outcome))
             self.delegate?.transformationFlowDidComplete(
                 originalText: outcome.originalText,
@@ -398,7 +402,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
         let clipboardText = try self.readClipboardText()
         try Task.checkCancellation()
 
-        let transformedText = try await self.performTransformation(
+        let (transformedText, descriptor) = try await self.performTransformation(
             clipboardText,
             timeout: request.timeout
         )
@@ -417,7 +421,8 @@ public final class TransformationFlowCoordinator: ObservableObject {
         return TransformationFlowOutcome(
             request: request,
             originalText: clipboardText,
-            transformedText: transformedText
+            transformedText: transformedText,
+            historyDescriptor: descriptor
         )
     }
 
@@ -425,11 +430,11 @@ public final class TransformationFlowCoordinator: ObservableObject {
     private func performTransformation(
         _ input: String,
         timeout: TimeInterval
-    ) async throws -> String {
+    ) async throws -> (String, TransformationHistoryDescriptor) {
         if let pipeline {
             do {
                 let result = try await pipeline.execute(input)
-                return result.output
+                return (result.output, self.makeDescriptor(from: result))
             } catch let error as PipelineError {
                 throw TransformationFlowError.transformationFailed(error)
             } catch let error as TransformationError {
@@ -438,9 +443,17 @@ public final class TransformationFlowCoordinator: ObservableObject {
         }
 
         do {
-            return try await self.executeWithTimeout(timeout) {
+            let output = try await self.executeWithTimeout(timeout) {
                 try await self.transformation.transform(input)
             }
+            return (
+                output,
+                self.makeDescriptor(
+                    id: self.transformation.id,
+                    name: self.transformation.displayName,
+                    metadataProvider: self.transformation
+                )
+            )
         } catch let error as TransformationError {
             throw TransformationFlowError.transformationFailed(error)
         }

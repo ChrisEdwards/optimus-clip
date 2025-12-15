@@ -37,6 +37,9 @@ public struct StageResult: Sendable {
 
     /// Duration of this stage in seconds.
     public let duration: TimeInterval
+
+    /// Optional metadata describing provider/model information (LLM stages).
+    public let metadata: TransformationHistoryMetadata?
 }
 
 /// Result of complete pipeline execution.
@@ -169,11 +172,13 @@ public struct TransformationPipeline: Sendable {
                 let output = try await transform.transform(current)
 
                 let duration = stageStart.duration(to: .now)
+                let metadataProvider = transform as? any TransformationHistoryMetadataProviding
                 let stageResult = StageResult(
                     transformationId: transform.id,
                     transformationName: transform.displayName,
                     output: output,
-                    duration: duration.seconds
+                    duration: duration.seconds,
+                    metadata: metadataProvider?.historyMetadata
                 )
 
                 stageResults.append(stageResult)

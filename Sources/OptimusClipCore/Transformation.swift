@@ -106,3 +106,31 @@ public struct IdentityTransformation: Transformation {
         return input
     }
 }
+
+// MARK: - Metadata Support
+
+/// Supplemental metadata describing how a transformation was executed.
+///
+/// Used for history logging to capture provider/model details for LLM-based
+/// transformations while keeping algorithmic transformations lightweight.
+public struct TransformationHistoryMetadata: Sendable, Equatable {
+    public let providerName: String?
+    public let modelUsed: String?
+    public let systemPrompt: String?
+
+    public init(
+        providerName: String? = nil,
+        modelUsed: String? = nil,
+        systemPrompt: String? = nil
+    ) {
+        self.providerName = providerName
+        self.modelUsed = modelUsed
+        self.systemPrompt = systemPrompt
+    }
+}
+
+/// Protocol that allows a transformation to expose metadata for history logging.
+public protocol TransformationHistoryMetadataProviding {
+    /// Metadata describing how the transformation was configured/executed.
+    var historyMetadata: TransformationHistoryMetadata { get }
+}

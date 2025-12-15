@@ -6,6 +6,7 @@ public struct LLMTransformation: Transformation {
     public let displayName: String
 
     private let providerClient: any LLMProviderClient
+    private let providerKind: LLMProviderKind
     private let model: String
     private let systemPrompt: String
     private let temperature: Double
@@ -27,6 +28,7 @@ public struct LLMTransformation: Transformation {
         self.id = id
         self.displayName = displayName
         self.providerClient = providerClient
+        self.providerKind = providerClient.provider
         self.model = model
         self.systemPrompt = systemPrompt
         self.temperature = temperature
@@ -117,5 +119,15 @@ public struct LLMTransformation: Transformation {
             group.cancelAll()
             return result
         }
+    }
+}
+
+extension LLMTransformation: TransformationHistoryMetadataProviding {
+    public var historyMetadata: TransformationHistoryMetadata {
+        TransformationHistoryMetadata(
+            providerName: self.providerKind.rawValue,
+            modelUsed: self.model,
+            systemPrompt: self.systemPrompt
+        )
     }
 }

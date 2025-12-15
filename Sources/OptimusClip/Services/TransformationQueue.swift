@@ -25,23 +25,49 @@ public struct TransformationRequest: Sendable, Equatable {
     }
 }
 
+/// Summary information about the transformation that ran, used for history logging.
+public struct TransformationHistoryDescriptor: Sendable, Equatable {
+    public let transformationId: String
+    public let transformationName: String
+    public let providerName: String?
+    public let modelUsed: String?
+    public let systemPrompt: String?
+
+    public init(
+        transformationId: String,
+        transformationName: String,
+        providerName: String? = nil,
+        modelUsed: String? = nil,
+        systemPrompt: String? = nil
+    ) {
+        self.transformationId = transformationId
+        self.transformationName = transformationName
+        self.providerName = providerName
+        self.modelUsed = modelUsed
+        self.systemPrompt = systemPrompt
+    }
+}
+
 /// Outcome of a completed transformation request.
 public struct TransformationFlowOutcome: Sendable, Equatable {
     public let request: TransformationRequest
     public let originalText: String
     public let transformedText: String
     public let finishedAt: Date
+    public let historyDescriptor: TransformationHistoryDescriptor
 
     public init(
         request: TransformationRequest,
         originalText: String,
         transformedText: String,
-        finishedAt: Date = .now
+        finishedAt: Date = .now,
+        historyDescriptor: TransformationHistoryDescriptor
     ) {
         self.request = request
         self.originalText = originalText
         self.transformedText = transformedText
         self.finishedAt = finishedAt
+        self.historyDescriptor = historyDescriptor
     }
 }
 

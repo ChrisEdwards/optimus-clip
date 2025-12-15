@@ -2,6 +2,11 @@ import Foundation
 import Testing
 @testable import OptimusClip
 
+private let testDescriptor = TransformationHistoryDescriptor(
+    transformationId: "test",
+    transformationName: "Test Transformation"
+)
+
 @Suite("TransformationQueue")
 struct TransformationQueueTests {
     @Test("Start registers task and blocks concurrent starts")
@@ -9,7 +14,12 @@ struct TransformationQueueTests {
         let queue = TransformationQueue()
         let request = TransformationRequest(timeout: 1, source: .pipeline)
         let task = Task<TransformationFlowOutcome, Error> {
-            TransformationFlowOutcome(request: request, originalText: "a", transformedText: "b")
+            TransformationFlowOutcome(
+                request: request,
+                originalText: "a",
+                transformedText: "b",
+                historyDescriptor: testDescriptor
+            )
         }
 
         try await queue.start(request: request, task: task)
@@ -19,7 +29,12 @@ struct TransformationQueueTests {
 
         let secondRequest = TransformationRequest(timeout: 1, source: .single(transformationId: "next"))
         let secondTask = Task<TransformationFlowOutcome, Error> {
-            TransformationFlowOutcome(request: secondRequest, originalText: "c", transformedText: "d")
+            TransformationFlowOutcome(
+                request: secondRequest,
+                originalText: "c",
+                transformedText: "d",
+                historyDescriptor: testDescriptor
+            )
         }
 
         do {
@@ -46,7 +61,12 @@ struct TransformationQueueTests {
 
         let longTask = Task<TransformationFlowOutcome, Error> {
             try await Task.sleep(for: .seconds(2))
-            return TransformationFlowOutcome(request: request, originalText: "x", transformedText: "y")
+            return TransformationFlowOutcome(
+                request: request,
+                originalText: "x",
+                transformedText: "y",
+                historyDescriptor: testDescriptor
+            )
         }
 
         try await queue.start(request: request, task: longTask)
@@ -62,7 +82,12 @@ struct TransformationQueueTests {
         let queue = TransformationQueue()
         let request = TransformationRequest(timeout: 1, source: .single(transformationId: "finish"))
         let task = Task<TransformationFlowOutcome, Error> {
-            TransformationFlowOutcome(request: request, originalText: "q", transformedText: "r")
+            TransformationFlowOutcome(
+                request: request,
+                originalText: "q",
+                transformedText: "r",
+                historyDescriptor: testDescriptor
+            )
         }
 
         try await queue.start(request: request, task: task)

@@ -1,5 +1,6 @@
 import MenuBarExtraAccess
 import OptimusClipCore
+import SwiftData
 import SwiftUI
 
 /// Main entry point for Optimus Clip.
@@ -18,6 +19,24 @@ struct OptimusClipApp: App {
 
     /// Observable state manager for menu bar icon appearance.
     @StateObject private var menuBarState = MenuBarStateManager()
+    private let historyContainer: ModelContainer
+    private let historyStore: HistoryStore
+
+    init() {
+        do {
+            let container = try HistoryModelContainerFactory.makePersistentContainer()
+            self.historyContainer = container
+            let entryLimit = UserDefaults.standard.object(forKey: SettingsKey.historyEntryLimit) as? Int
+                ?? DefaultSettings.historyEntryLimit
+            self.historyStore = HistoryStore(
+                container: container,
+                configuration: .init(entryLimit: entryLimit)
+            )
+            TransformationFlowCoordinator.shared.historyStore = self.historyStore
+        } catch {
+            fatalError("Failed to initialize SwiftData history container: \(error)")
+        }
+    }
 
     var body: some Scene {
         // Primary menu bar scene
@@ -30,11 +49,15 @@ struct OptimusClipApp: App {
         .menuBarExtraAccess(isPresented: self.$menuBarState.isMenuPresented) { statusItem in
             self.menuBarState.configureStatusItem(statusItem)
         }
+        .modelContainer(self.historyContainer)
+        .environment(\.historyStore, self.historyStore)
 
         // Settings window scene (native macOS settings pattern)
         Settings {
             SettingsView()
         }
+        .modelContainer(self.historyContainer)
+        .environment(\.historyStore, self.historyStore)
     }
 
     /// Accessibility label describing the current icon state.
