@@ -5,6 +5,14 @@ import OptimusClipCore
 ///
 /// Secrets are stored in the Keychain (via APIKeyStore). Non-secret values
 /// such as host/port/region remain in UserDefaults.
+///
+/// ## Usage
+/// ```swift
+/// let resolver = ProviderCredentialsResolver()
+/// if let creds = try resolver.credentials(for: .openAI) {
+///     // Use credentials
+/// }
+/// ```
 struct ProviderCredentialsResolver {
     private let keyStore: APIKeyStore
     private let userDefaults: UserDefaults

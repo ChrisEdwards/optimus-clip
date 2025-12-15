@@ -1,0 +1,116 @@
+import Foundation
+import OptimusClipCore
+
+/// OpenAI provider client using direct HTTP calls to OpenAI Chat Completions API.
+public struct OpenAIProviderClient: LLMProviderClient, Sendable {
+    public let provider: LLMProviderKind = .openAI
+
+    private let apiKey: String
+
+    public init(apiKey: String) {
+        self.apiKey = apiKey
+    }
+
+    public func isConfigured() -> Bool {
+        !self.apiKey.isEmpty
+    }
+
+    public func transform(_ request: LLMRequest) async throws -> LLMResponse {
+        guard self.isConfigured() else {
+            throw LLMProviderError.notConfigured
+        }
+
+        let startTime = Date()
+        let urlRequest = try self.buildRequest(request)
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        try self.validateResponse(response)
+
+        let chatResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
+        return self.buildLLMResponse(chatResponse, startTime: startTime)
+    }
+
+    // MARK: - Helpers
+
+    private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
+            throw LLMProviderError.invalidResponse("Invalid URL")
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("Bearer \(self.apiKey)", forHTTPHeaderField: "Authorization")
+        urlRequest.timeoutInterval = request.timeout
+
+        let body = OpenAIChatRequest(
+            model: request.model,
+            messages: [
+                OpenAIMessage(role: "system", content: request.systemPrompt),
+                OpenAIMessage(role: "user", content: request.text)
+            ],
+            temperature: request.temperature,
+            maxTokens: request.maxTokens
+        )
+        urlRequest.httpBody = try JSONEncoder().encode(body)
+        return urlRequest
+    }
+
+    private func validateResponse(_ response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw LLMProviderError.invalidResponse("Invalid response type")
+        }
+
+        switch httpResponse.statusCode {
+        case 200:
+            return
+        case 401:
+            throw LLMProviderError.authenticationError
+        case 429:
+            throw LLMProviderError.rateLimited(retryAfter: nil)
+        case 404:
+            throw LLMProviderError.modelNotFound
+        case 500 ... 599:
+            throw LLMProviderError.server("OpenAI server error")
+        default:
+            throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
+        }
+    }
+
+    private func buildLLMResponse(_ chatResponse: OpenAIChatResponse, startTime: Date) -> LLMResponse {
+        let output = chatResponse.choices.first?.message.content ?? ""
+        return LLMResponse(
+            provider: .openAI,
+            model: chatResponse.model,
+            output: output,
+            duration: Date().timeIntervalSince(startTime)
+        )
+    }
+}
+
+// MARK: - OpenAI API Types
+
+private struct OpenAIChatRequest: Encodable {
+    let model: String
+    let messages: [OpenAIMessage]
+    let temperature: Double
+    let maxTokens: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case model, messages, temperature
+        case maxTokens = "max_tokens"
+    }
+}
+
+private struct OpenAIMessage: Codable {
+    let role: String
+    let content: String
+}
+
+private struct OpenAIChatResponse: Decodable {
+    let model: String
+    let choices: [OpenAIChoice]
+}
+
+private struct OpenAIChoice: Decodable {
+    let message: OpenAIMessage
+}
