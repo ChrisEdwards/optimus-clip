@@ -14,7 +14,11 @@ import SwiftUI
 ///
 /// ## Polling Strategy
 /// macOS doesn't provide notifications when permission changes.
-/// The AccessibilityPermissionManager polls every 2 seconds to detect changes.
+/// The AccessibilityPermissionManager uses context-aware polling:
+/// - **1 second**: When this Permissions tab is visible (user is actively waiting)
+/// - **5 seconds**: When Settings window is open but on another tab
+/// - **30 seconds**: When app is in background
+/// - **Stopped**: Once permission is granted (no further polling needed)
 struct PermissionsTabView: View {
     @ObservedObject private var permissionManager = AccessibilityPermissionManager.shared
 
@@ -39,6 +43,14 @@ struct PermissionsTabView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            // Fast polling when user is actively viewing permissions
+            self.permissionManager.setPollingContext(.permissionsTabVisible)
+        }
+        .onDisappear {
+            // Slower polling when navigating away
+            self.permissionManager.setPollingContext(.settingsOpen)
+        }
     }
 }
 
