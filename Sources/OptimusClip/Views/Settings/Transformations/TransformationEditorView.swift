@@ -1,5 +1,16 @@
 import KeyboardShortcuts
+import OptimusClipCore
 import SwiftUI
+
+// MARK: - Test State
+
+/// State of the transformation test execution.
+enum TransformationTestState: Equatable {
+    case idle
+    case running
+    case success(duration: TimeInterval)
+    case error(message: String)
+}
 
 // MARK: - Editor View
 
@@ -9,6 +20,7 @@ import SwiftUI
 /// - Basic settings: name, hotkey, enabled toggle
 /// - Type selection: algorithmic or LLM
 /// - LLM settings: provider, model, system prompt (conditional)
+/// - Test mode with input/output preview
 struct TransformationEditorView: View {
     @Binding var transformation: TransformationConfig
 
@@ -20,6 +32,17 @@ struct TransformationEditorView: View {
 
     /// Whether to show the "use anyway" confirmation for system/common conflicts.
     @State private var showUseAnywayConfirmation = false
+
+    // MARK: - Test Mode State
+
+    /// Input text for testing the transformation.
+    @State private var testInput: String = ""
+
+    /// Output from the test run.
+    @State private var testOutput: String = ""
+
+    /// Current state of test execution.
+    @State private var testState: TransformationTestState = .idle
 
     var body: some View {
         Form {
@@ -84,9 +107,106 @@ struct TransformationEditorView: View {
                     }
                 }
             }
+
+            // Test Mode Section
+            Section("Test Transformation") {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Input area
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Input")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        TextEditor(text: self.$testInput)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 60, maxHeight: 100)
+                            .border(Color.secondary.opacity(0.3))
+                    }
+
+                    // Run button and status
+                    HStack {
+                        Button {
+                            Task {
+                                await self.runTest()
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if self.testState == .running {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "play.fill")
+                                }
+                                Text("Run Test")
+                            }
+                        }
+                        .disabled(self.testInput.isEmpty || self.testState == .running)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+
+                        Spacer()
+
+                        // Status indicator
+                        self.testStatusView
+                    }
+
+                    // Output area (only show if there's output)
+                    if !self.testOutput.isEmpty || self.testState == .running {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Output")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            if self.testState == .running {
+                                HStack {
+                                    Spacer()
+                                    ProgressView("Running transformation...")
+                                    Spacer()
+                                }
+                                .frame(minHeight: 60)
+                            } else {
+                                TextEditor(text: .constant(self.testOutput))
+                                    .font(.system(.body, design: .monospaced))
+                                    .frame(minHeight: 60, maxHeight: 100)
+                                    .border(Color.secondary.opacity(0.3))
+                            }
+                        }
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    // MARK: - Test Status View
+
+    @ViewBuilder
+    private var testStatusView: some View {
+        switch self.testState {
+        case .idle:
+            EmptyView()
+        case .running:
+            Text("Running...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        case let .success(duration):
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                Text(String(format: "%.2fs", duration))
+            }
+            .font(.caption)
+        case let .error(message):
+            HStack(spacing: 4) {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red)
+                Text(message)
+                    .lineLimit(1)
+            }
+            .font(.caption)
+            .help(message)
+        }
     }
 
     // MARK: - Bindings
@@ -123,6 +243,86 @@ struct TransformationEditorView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 KeyboardShortcuts.reset(self.transformation.shortcutName)
             }
+        }
+    }
+
+    // MARK: - Test Execution
+
+    /// Runs the transformation on test input and displays the result.
+    @MainActor
+    private func runTest() async {
+        guard !self.testInput.isEmpty else { return }
+
+        let startTime = Date()
+        self.testState = .running
+        self.testOutput = ""
+
+        do {
+            let output: String = switch self.transformation.type {
+            case .algorithmic:
+                // Use built-in algorithmic transformation
+                try await self.runAlgorithmicTest()
+
+            case .llm:
+                // Use LLM transformation
+                try await self.runLLMTest()
+            }
+
+            let duration = Date().timeIntervalSince(startTime)
+            self.testOutput = output
+            self.testState = .success(duration: duration)
+
+        } catch {
+            self.testState = .error(message: error.localizedDescription)
+        }
+    }
+
+    /// Runs an algorithmic transformation test.
+    private func runAlgorithmicTest() async throws -> String {
+        // Use the WhitespaceStripTransformation for algorithmic types
+        let transformation = WhitespaceStripTransformation()
+        return try await transformation.transform(self.testInput)
+    }
+
+    /// Runs an LLM transformation test.
+    private func runLLMTest() async throws -> String {
+        // Validate provider is configured
+        guard let providerName = self.transformation.provider,
+              !providerName.isEmpty else {
+            throw TestError.noProviderConfigured
+        }
+
+        // Create the LLM client and run the transformation
+        let factory = LLMProviderClientFactory()
+        guard let resolved = try? factory.client(for: self.transformation) else {
+            throw TestError.providerNotConfigured(providerName)
+        }
+
+        let llmTransformation = LLMTransformation(
+            id: "test-\(self.transformation.id.uuidString)",
+            displayName: self.transformation.name,
+            providerClient: resolved.client,
+            model: resolved.resolution.model,
+            systemPrompt: self.transformation.systemPrompt
+        )
+
+        return try await llmTransformation.transform(self.testInput)
+    }
+}
+
+// MARK: - Test Errors
+
+/// Errors that can occur during transformation testing.
+private enum TestError: LocalizedError {
+    case noProviderConfigured
+    case providerNotConfigured(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .noProviderConfigured:
+            "No LLM provider selected"
+        case let .providerNotConfigured(name):
+            "\(name) is not configured"
         }
     }
 }
