@@ -49,7 +49,8 @@ struct TransformationsTabView: View {
             if let selectedID = self.selectedID,
                let index = self.transformations.firstIndex(where: { $0.id == selectedID }) {
                 TransformationEditorView(
-                    transformation: self.bindingForTransformation(at: index)
+                    transformation: self.bindingForTransformation(at: index),
+                    allTransformations: self.transformations
                 )
                 .frame(minWidth: 250)
             } else {
