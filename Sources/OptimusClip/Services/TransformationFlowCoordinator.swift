@@ -166,13 +166,12 @@ public final class TransformationFlowCoordinator: ObservableObject {
         if let pipeline = self.pipeline {
             // For pipelines, use a combined name or the pipeline's name
             let names = pipeline.transformationDisplayNames
-            let baseName: String
-            if names.count == 1 {
-                baseName = names[0]
+            let baseName: String = if names.count == 1 {
+                names[0]
             } else if names.count <= 3 {
-                baseName = names.joined(separator: " + ")
+                names.joined(separator: " + ")
             } else {
-                baseName = "\(names[0]) + \(names.count - 1) more"
+                "\(names[0]) + \(names.count - 1) more"
             }
             // Add provider info if available
             if let providerName = self.extractProviderName(from: pipeline) {

@@ -1,5 +1,8 @@
 import CryptoKit
 import Foundation
+import OSLog
+
+private let migrationLogger = Logger(subsystem: "com.optimusclip", category: "EncryptedStorage")
 
 /// Encrypted storage service that stores AES-GCM encrypted data in UserDefaults.
 /// Implements `KeychainService` protocol as a drop-in replacement for `KeychainWrapper`.
@@ -170,9 +173,9 @@ extension EncryptedStorageService {
                 // Delete from Keychain (optional - keeps things clean)
                 try? keychain.delete(service: service, account: account)
 
-                print("[Migration] Migrated \(service) from Keychain to encrypted storage")
+                migrationLogger.info("Migrated \(service) from Keychain to encrypted storage")
             } catch {
-                print("[Migration] Failed to migrate \(service): \(error)")
+                migrationLogger.error("Failed to migrate \(service): \(error.localizedDescription)")
             }
         }
     }
