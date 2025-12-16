@@ -85,15 +85,79 @@ struct OptimusClipApp: App {
     /// Menu bar icon view with animation/highlight applied.
     @ViewBuilder
     private var menuBarIcon: some View {
-        Image(systemName: "clipboard.fill")
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(
-                self.menuBarState.shouldHighlightProcessingIcon ? Color.accentColor : Color.primary
-            )
-            .opacity(self.menuBarState.iconOpacity)
-            .accessibilityLabel(self.accessibilityLabel)
-            .optionalAccessibilityValue(self.processingAccessibilityValue)
-            .processingPulse(isActive: self.menuBarState.shouldAnimateProcessing)
+        ZStack(alignment: .bottomTrailing) {
+            Image(systemName: "clipboard.fill")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(
+                    self.menuBarState.shouldHighlightProcessingIcon ? Color.accentColor : Color.primary
+                )
+                .opacity(self.menuBarState.iconOpacity)
+                .processingPulse(isActive: self.menuBarState.shouldAnimateProcessing)
+
+            // Badge overlay
+            if self.menuBarState.badge != .none {
+                BadgeView(badge: self.menuBarState.badge)
+            }
+        }
+        .accessibilityLabel(self.accessibilityLabel)
+        .optionalAccessibilityValue(self.processingAccessibilityValue)
+    }
+}
+
+// MARK: - Badge View
+
+/// Small colored dot badge for menu bar icon.
+@MainActor
+private struct BadgeView: View {
+    let badge: MenuBarBadge
+
+    private var badgeColor: Color {
+        switch self.badge {
+        case .none:
+            .clear
+        case .needsAttention:
+            .red
+        case .setupIncomplete:
+            .yellow
+        }
+    }
+
+    var body: some View {
+        Circle()
+            .fill(self.badgeColor)
+            .frame(width: 6, height: 6)
+            .offset(x: 2, y: 2)
+    }
+}
+
+// MARK: - Status Header View
+
+/// Header view shown in menu when app needs attention.
+@MainActor
+private struct StatusHeaderView: View {
+    let title: String
+    let subtitle: String
+    let iconName: String
+    let iconColor: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            self.action()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: self.iconName)
+                    .foregroundStyle(self.iconColor)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(self.title)
+                        .font(.system(.body, weight: .medium))
+                    Text(self.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        }
     }
 }
 
@@ -112,6 +176,9 @@ private struct MenuBarMenuContent: View {
 
     /// Global hotkey manager for toggle binding.
     @ObservedObject private var hotkeyManager = HotkeyManager.shared
+
+    /// Accessibility permission manager for status header.
+    @ObservedObject private var permissionManager = AccessibilityPermissionManager.shared
 
     /// Decoded transformations from storage.
     private var transformations: [TransformationConfig] {
@@ -143,6 +210,19 @@ private struct MenuBarMenuContent: View {
     }
 
     var body: some View {
+        // Status header when attention needed
+        if !self.permissionManager.isGranted {
+            StatusHeaderView(
+                title: "Permission Required",
+                subtitle: "Enable accessibility in System Settings",
+                iconName: "exclamationmark.triangle.fill",
+                iconColor: .red
+            ) {
+                self.permissionManager.openSystemSettings()
+            }
+            Divider()
+        }
+
         // Transformations submenu
         TransformationsSubmenu(
             enabledTransformations: self.enabledTransformations,
