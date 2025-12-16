@@ -286,27 +286,31 @@ struct TransformationEditorView: View {
 
     /// Runs an LLM transformation test.
     private func runLLMTest() async throws -> String {
-        // Extract config to local constant for type clarity
-        let config = self.transformation
-
         // Validate provider is configured
-        guard let providerName = config.provider,
+        guard let providerName = self.transformation.provider,
               !providerName.isEmpty else {
             throw TestError.noProviderConfigured
         }
 
-        // Create the LLM client and run the transformation
+        // Resolve model using the hierarchy (transformation > provider default > fallback)
+        let modelResolver = ModelResolver()
+        guard let resolution = modelResolver.resolveModel(for: self.transformation) else {
+            throw TestError.providerNotConfigured(providerName)
+        }
+
+        // Create the LLM client
         let factory = LLMProviderClientFactory()
-        guard let resolved = try? factory.client(for: config) else {
+        guard let client = try? factory.client(for: resolution.provider),
+              client.isConfigured() else {
             throw TestError.providerNotConfigured(providerName)
         }
 
         let llmTransformation = LLMTransformation(
-            id: "test-\(config.id.uuidString)",
-            displayName: config.name,
-            providerClient: resolved.client,
-            model: resolved.resolution.model,
-            systemPrompt: config.systemPrompt
+            id: "test-\(self.transformation.id.uuidString)",
+            displayName: self.transformation.name,
+            providerClient: client,
+            model: resolution.model,
+            systemPrompt: self.transformation.systemPrompt
         )
 
         return try await llmTransformation.transform(self.testInput)
