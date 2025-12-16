@@ -102,12 +102,16 @@ struct OptimusClipApp: App {
 /// Content view for the menu bar dropdown menu.
 ///
 /// Extracted to a separate View to enable use of `@Environment(\.openSettings)`.
+@MainActor
 private struct MenuBarMenuContent: View {
     /// Environment action to open the Settings window.
     @Environment(\.openSettings) private var openSettings
 
     /// Stored transformations (JSON-encoded in UserDefaults).
     @AppStorage("transformations_data") private var transformationsData: Data = .init()
+
+    /// Global hotkey manager for toggle binding.
+    @ObservedObject private var hotkeyManager = HotkeyManager.shared
 
     /// Decoded transformations from storage.
     private var transformations: [TransformationConfig] {
@@ -123,12 +127,31 @@ private struct MenuBarMenuContent: View {
         self.transformations.filter(\.isEnabled)
     }
 
+    /// Binding for the hotkey toggle menu item.
+    private var hotkeyToggleBinding: Binding<Bool> {
+        Binding(
+            get: { self.hotkeyManager.hotkeyListeningEnabled },
+            set: { isOn in
+                self.hotkeyManager.setHotkeyListeningEnabled(isOn)
+            }
+        )
+    }
+
+    /// Display label for the toggle based on current state.
+    private var hotkeyToggleLabel: String {
+        self.hotkeyManager.hotkeyListeningEnabled ? "Hotkeys Enabled" : "Hotkeys Paused"
+    }
+
     var body: some View {
         // Transformations submenu
         TransformationsSubmenu(
             enabledTransformations: self.enabledTransformations,
             openSettings: self.openSettings
         )
+
+        Divider()
+
+        Toggle(self.hotkeyToggleLabel, isOn: self.hotkeyToggleBinding)
 
         Divider()
 
@@ -151,6 +174,7 @@ private struct MenuBarMenuContent: View {
 // MARK: - Transformations Submenu
 
 /// Submenu showing available transformations with keyboard shortcuts.
+@MainActor
 private struct TransformationsSubmenu: View {
     let enabledTransformations: [TransformationConfig]
     let openSettings: OpenSettingsAction
@@ -179,6 +203,7 @@ private struct TransformationsSubmenu: View {
 // MARK: - Transformation Menu Item
 
 /// Individual menu item for a transformation with keyboard shortcut display.
+@MainActor
 private struct TransformationMenuItem: View {
     let transformation: TransformationConfig
 
@@ -237,24 +262,16 @@ private struct TransformationMenuItem: View {
     /// Creates an LLM transformation pipeline from a transformation config.
     @MainActor
     private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
-        guard let providerString = transformation.provider,
-              let providerKind = LLMProviderKind(rawValue: providerString),
-              let model = transformation.model,
-              !model.isEmpty else {
-            return nil
-        }
-
         let factory = LLMProviderClientFactory()
-        guard let client = try? factory.client(for: providerKind),
-              client.isConfigured() else {
+        guard let resolved = try? factory.client(for: transformation) else {
             return nil
         }
 
         let llmTransformation = LLMTransformation(
             id: "llm-\(transformation.id.uuidString)",
             displayName: transformation.name,
-            providerClient: client,
-            model: model,
+            providerClient: resolved.client,
+            model: resolved.resolution.model,
             systemPrompt: transformation.systemPrompt
         )
 

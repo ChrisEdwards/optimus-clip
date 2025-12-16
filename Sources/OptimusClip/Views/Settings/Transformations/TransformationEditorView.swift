@@ -286,30 +286,21 @@ struct TransformationEditorView: View {
 
     /// Runs an LLM transformation test.
     private func runLLMTest() async throws -> String {
-        // Validate provider is configured
-        guard let providerName = self.transformation.provider,
-              !providerName.isEmpty,
-              let providerKind = LLMProviderKind(rawValue: providerName) else {
-            throw TestError.noProviderConfigured
-        }
+        let providerName = self.transformation.provider ?? ""
 
-        // Create the LLM client using the provider
         let factory = LLMProviderClientFactory()
-        guard let client = try? factory.client(for: providerKind),
-              client.isConfigured() else {
+        guard let resolved = try? factory.client(for: self.transformation) else {
+            if providerName.isEmpty {
+                throw TestError.noProviderConfigured
+            }
             throw TestError.providerNotConfigured(providerName)
         }
-
-        // Use the model from the transformation or fall back to provider default
-        let model = self.transformation.model
-            ?? ModelResolver.fallbackModel(for: providerKind)
-            ?? "gpt-4o-mini"
 
         let llmTransformation = LLMTransformation(
             id: "test-\(self.transformation.id.uuidString)",
             displayName: self.transformation.name,
-            providerClient: client,
-            model: model,
+            providerClient: resolved.client,
+            model: resolved.resolution.model,
             systemPrompt: self.transformation.systemPrompt
         )
 

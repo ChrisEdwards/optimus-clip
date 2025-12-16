@@ -1,4 +1,6 @@
 import AppKit
+import Combine
+import Foundation
 import KeyboardShortcuts
 import OptimusClipCore
 import os.log
@@ -43,8 +45,20 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - State
 
-    /// Set of currently registered shortcut names for tracking.
+    /// Whether global hotkey listening is currently enabled.
+    @Published private(set) var hotkeyListeningEnabled: Bool
+
+    /// Persistent storage for the listening flag.
+    private let userDefaults: UserDefaults
+
+    /// Set of shortcut names with registered handlers.
     private var registeredShortcuts: Set<KeyboardShortcuts.Name> = []
+
+    /// Subset of registered shortcuts that are currently active/enabled.
+    private var activeShortcuts: Set<KeyboardShortcuts.Name> = []
+
+    /// Shortcuts that should resume once global listening is re-enabled.
+    private var globallySuspendedShortcuts: Set<KeyboardShortcuts.Name> = []
 
     /// Cache of transformation configs keyed by their shortcut name.
     /// Used to look up the transformation when a hotkey is triggered.
@@ -52,7 +66,14 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Initialization
 
-    private init() {}
+    private init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        if let stored = userDefaults.object(forKey: SettingsKey.hotkeyListeningEnabled) as? Bool {
+            self.hotkeyListeningEnabled = stored
+        } else {
+            self.hotkeyListeningEnabled = DefaultSettings.hotkeyListeningEnabled
+        }
+    }
 
     // MARK: - Built-in Shortcuts
 
@@ -74,6 +95,7 @@ final class HotkeyManager: ObservableObject {
             }
         }
         self.registeredShortcuts.insert(.cleanTerminalText)
+        self.activateShortcutBasedOnGlobalState(.cleanTerminalText)
 
         // Format As Markdown: Cmd+Option+S
         KeyboardShortcuts.onKeyUp(for: .formatAsMarkdown) { [weak self] in
@@ -83,6 +105,7 @@ final class HotkeyManager: ObservableObject {
             }
         }
         self.registeredShortcuts.insert(.formatAsMarkdown)
+        self.activateShortcutBasedOnGlobalState(.formatAsMarkdown)
     }
 
     /// Ensures a built-in shortcut has its default value if currently unset.
@@ -131,8 +154,8 @@ final class HotkeyManager: ObservableObject {
         // Track registration
         self.registeredShortcuts.insert(shortcutName)
 
-        // Enable the shortcut
-        KeyboardShortcuts.enable(shortcutName)
+        // Enable shortcut if global listening is active, otherwise keep suspended
+        self.activateShortcutBasedOnGlobalState(shortcutName)
     }
 
     /// Unregisters a hotkey handler for a transformation.
@@ -144,11 +167,12 @@ final class HotkeyManager: ObservableObject {
         let shortcutName = transformation.shortcutName
 
         // Disable and reset the shortcut
-        KeyboardShortcuts.disable(shortcutName)
+        self.disableShortcut(shortcutName)
         KeyboardShortcuts.reset(shortcutName)
 
         // Remove from tracking
         self.registeredShortcuts.remove(shortcutName)
+        self.globallySuspendedShortcuts.remove(shortcutName)
         self.transformationsByShortcut.removeValue(forKey: shortcutName)
     }
 
@@ -168,9 +192,10 @@ final class HotkeyManager: ObservableObject {
     /// This clears all registered user shortcuts but preserves built-in shortcuts.
     func unregisterAllUserTransformations() {
         for (shortcutName, _) in self.transformationsByShortcut {
-            KeyboardShortcuts.disable(shortcutName)
+            self.disableShortcut(shortcutName)
             KeyboardShortcuts.reset(shortcutName)
             self.registeredShortcuts.remove(shortcutName)
+            self.globallySuspendedShortcuts.remove(shortcutName)
         }
         self.transformationsByShortcut.removeAll()
     }
@@ -193,10 +218,29 @@ final class HotkeyManager: ObservableObject {
             if !self.registeredShortcuts.contains(shortcutName) {
                 self.register(transformation: transformation)
             } else {
-                KeyboardShortcuts.enable(shortcutName)
+                self.activateShortcutBasedOnGlobalState(shortcutName)
             }
         } else {
-            KeyboardShortcuts.disable(shortcutName)
+            self.disableShortcut(shortcutName)
+            self.globallySuspendedShortcuts.remove(shortcutName)
+        }
+    }
+
+    // MARK: - Global Listening Control
+
+    /// Enables or disables all hotkey handling at once.
+    ///
+    /// Disabling releases the shortcuts so other apps can use them.
+    /// Enabling restores only the shortcuts that were previously active.
+    func setHotkeyListeningEnabled(_ enabled: Bool) {
+        guard self.hotkeyListeningEnabled != enabled else { return }
+        self.hotkeyListeningEnabled = enabled
+        self.userDefaults.set(enabled, forKey: SettingsKey.hotkeyListeningEnabled)
+
+        if enabled {
+            self.restoreShortcutsAfterGlobalToggle()
+        } else {
+            self.suspendShortcutsForGlobalToggle()
         }
     }
 
@@ -253,7 +297,8 @@ final class HotkeyManager: ObservableObject {
         // Try the default provider (Anthropic) first
         if let client = try? factory.client(for: .anthropic), client.isConfigured() {
             logger.info("Using Anthropic for Format As Markdown")
-            return self.makeFormatAsMarkdownPipeline(client: client, model: "claude-3-haiku-20240307")
+            let model = ModelResolver.fallbackModel(for: .anthropic) ?? "claude-3-5-sonnet-20241022"
+            return self.makeFormatAsMarkdownPipeline(client: client, model: model)
         }
         logger.debug("Anthropic not configured, checking other providers")
 
@@ -285,13 +330,7 @@ final class HotkeyManager: ObservableObject {
 
     /// Returns a reasonable default model for the given provider.
     private static func defaultModel(for provider: LLMProviderKind) -> String {
-        switch provider {
-        case .openAI: "gpt-4o-mini"
-        case .anthropic: "claude-3-haiku-20240307"
-        case .openRouter: "anthropic/claude-3-haiku"
-        case .ollama: "llama3.1"
-        case .awsBedrock: "anthropic.claude-3-haiku-20240307-v1:0"
-        }
+        ModelResolver.fallbackModel(for: provider) ?? "gpt-4o-mini"
     }
 
     /// Handles a user-created transformation hotkey trigger.
@@ -336,18 +375,8 @@ final class HotkeyManager: ObservableObject {
     /// - Parameter transformation: The transformation config with LLM settings.
     /// - Returns: A configured pipeline, or `nil` if LLM is not configured.
     private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
-        // Validate required LLM configuration
-        guard let providerString = transformation.provider,
-              let providerKind = LLMProviderKind(rawValue: providerString),
-              let model = transformation.model,
-              !model.isEmpty else {
-            return nil
-        }
-
-        // Get the provider client from credentials
         let factory = LLMProviderClientFactory()
-        guard let client = try? factory.client(for: providerKind),
-              client.isConfigured() else {
+        guard let resolved = try? factory.client(for: transformation) else {
             return nil
         }
 
@@ -355,8 +384,8 @@ final class HotkeyManager: ObservableObject {
         let llmTransformation = LLMTransformation(
             id: "llm-\(transformation.id.uuidString)",
             displayName: transformation.name,
-            providerClient: client,
-            model: model,
+            providerClient: resolved.client,
+            model: resolved.resolution.model,
             systemPrompt: transformation.systemPrompt
         )
 
@@ -377,5 +406,43 @@ final class HotkeyManager: ObservableObject {
     /// Returns the count of registered shortcuts.
     var registeredCount: Int {
         self.registeredShortcuts.count
+    }
+
+    // MARK: - Private Helpers
+
+    /// Enables the shortcut immediately or schedules it once global listening resumes.
+    private func activateShortcutBasedOnGlobalState(_ shortcutName: KeyboardShortcuts.Name) {
+        if self.hotkeyListeningEnabled {
+            self.enableShortcut(shortcutName)
+        } else {
+            self.globallySuspendedShortcuts.insert(shortcutName)
+            self.disableShortcut(shortcutName)
+        }
+    }
+
+    private func enableShortcut(_ shortcutName: KeyboardShortcuts.Name) {
+        KeyboardShortcuts.enable(shortcutName)
+        self.activeShortcuts.insert(shortcutName)
+        self.globallySuspendedShortcuts.remove(shortcutName)
+    }
+
+    private func disableShortcut(_ shortcutName: KeyboardShortcuts.Name) {
+        KeyboardShortcuts.disable(shortcutName)
+        self.activeShortcuts.remove(shortcutName)
+    }
+
+    private func suspendShortcutsForGlobalToggle() {
+        let currentlyActive = self.activeShortcuts
+        self.globallySuspendedShortcuts.formUnion(currentlyActive)
+        for name in currentlyActive {
+            self.disableShortcut(name)
+        }
+    }
+
+    private func restoreShortcutsAfterGlobalToggle() {
+        for name in self.globallySuspendedShortcuts where self.registeredShortcuts.contains(name) {
+            self.enableShortcut(name)
+        }
+        self.globallySuspendedShortcuts.removeAll()
     }
 }

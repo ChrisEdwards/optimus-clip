@@ -36,6 +36,29 @@ struct LLMProviderClientFactory {
         return Self.makeClient(from: credentials)
     }
 
+    /// Resolves the configured client and effective model for a transformation.
+    ///
+    /// Uses ModelResolver to apply the hierarchy:
+    /// transformation override > provider default > fallback default.
+    ///
+    /// - Parameter transformation: User-defined transformation settings.
+    /// - Parameter modelResolver: Resolver to use (injectable for tests).
+    /// - Returns: Client plus resolved model info, or `nil` if provider/model missing or not configured.
+    func client(
+        for transformation: TransformationConfig,
+        modelResolver: ModelResolver = ModelResolver()
+    ) throws -> ClientResolution? {
+        guard let resolution = modelResolver.resolveModel(for: transformation) else {
+            return nil
+        }
+
+        guard let client = try self.client(for: resolution.provider), client.isConfigured() else {
+            return nil
+        }
+
+        return ClientResolution(client: client, resolution: resolution)
+    }
+
     /// Creates an LLMProviderClient from explicit credentials.
     ///
     /// Use this when you already have credentials (e.g., from settings validation).
@@ -85,6 +108,15 @@ struct LLMProviderClientFactory {
             return false
         }
         return client.isConfigured()
+    }
+}
+
+// MARK: - Client + Model Bundle
+
+extension LLMProviderClientFactory {
+    struct ClientResolution: Sendable {
+        let client: any LLMProviderClient
+        let resolution: ModelResolver.Resolution
     }
 }
 
