@@ -26,6 +26,9 @@ final class MenuBarStateManager: ObservableObject {
     /// Reflects the user's Reduce Motion accessibility preference.
     @Published private(set) var reduceMotionEnabled: Bool
 
+    /// Tracks whether global hotkey listening is currently enabled.
+    @Published private(set) var hotkeysEnabled: Bool
+
     /// Publisher we listen to for processing state updates (injectable for testing).
     private let processingPublisher: AnyPublisher<Bool, Never>
 
@@ -63,9 +66,10 @@ final class MenuBarStateManager: ObservableObject {
         self.notificationCenter = notificationCenter
         self.reduceMotionProvider = reduceMotionProvider
         self.reduceMotionEnabled = reduceMotionProvider()
+        let resolvedHotkeyState = initialHotkeyState ?? HotkeyManager.shared.hotkeyListeningEnabled
+        self.hotkeysEnabled = resolvedHotkeyState
         self.hotkeyStatePublisher = hotkeyStatePublisher ?? HotkeyManager.shared.$hotkeyListeningEnabled
             .eraseToAnyPublisher()
-        let resolvedHotkeyState = initialHotkeyState ?? HotkeyManager.shared.hotkeyListeningEnabled
         self.stateMachine.setDisabled(!resolvedHotkeyState)
 
         self.observeProcessing()
@@ -140,7 +144,9 @@ final class MenuBarStateManager: ObservableObject {
             .receive(on: RunLoop.main)
             .removeDuplicates()
             .sink { [weak self] isEnabled in
-                self?.stateMachine.setDisabled(!isEnabled)
+                guard let self else { return }
+                self.hotkeysEnabled = isEnabled
+                self.stateMachine.setDisabled(!isEnabled)
             }
             .store(in: &self.cancellables)
     }

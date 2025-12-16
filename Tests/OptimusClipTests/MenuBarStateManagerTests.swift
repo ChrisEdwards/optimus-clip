@@ -78,6 +78,7 @@ struct MenuBarStateManagerProcessingTests {
         #expect(manager.shouldAnimateProcessing == false)
         #expect(manager.shouldHighlightProcessingIcon == false)
         #expect(manager.reduceMotionEnabled == false)
+        #expect(manager.hotkeysEnabled == true)
 
         subject.send(true)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
@@ -109,13 +110,16 @@ struct MenuBarStateManagerHotkeyTests {
         )
 
         #expect(manager.iconState == .idle)
+        #expect(manager.hotkeysEnabled == true)
 
         hotkeySubject.send(false)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
         #expect(manager.iconState == .disabled)
+        #expect(manager.hotkeysEnabled == false)
 
         hotkeySubject.send(true)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
         #expect(manager.iconState == .idle)
+        #expect(manager.hotkeysEnabled == true)
     }
 }
