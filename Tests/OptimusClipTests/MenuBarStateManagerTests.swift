@@ -64,11 +64,14 @@ struct MenuBarStateManagerProcessingTests {
         let subject = PassthroughSubject<Bool, Never>()
         var reduceMotion = false
         let notificationCenter = NotificationCenter()
+        let hotkeyPublisher = Just(true).eraseToAnyPublisher()
 
         let manager = MenuBarStateManager(
             processingPublisher: subject.eraseToAnyPublisher(),
             notificationCenter: notificationCenter,
-            reduceMotionProvider: { reduceMotion }
+            reduceMotionProvider: { reduceMotion },
+            hotkeyStatePublisher: hotkeyPublisher,
+            initialHotkeyState: true
         )
 
         #expect(manager.isProcessing == false)
@@ -88,5 +91,31 @@ struct MenuBarStateManagerProcessingTests {
         #expect(manager.reduceMotionEnabled)
         #expect(manager.shouldAnimateProcessing == false)
         #expect(manager.shouldHighlightProcessingIcon)
+    }
+}
+
+@Suite("MenuBarStateManager Hotkey Observation")
+struct MenuBarStateManagerHotkeyTests {
+    @MainActor
+    @Test("Hotkey state publisher toggles disabled icon state")
+    func hotkeyStateDrivesDisabledStatus() {
+        let hotkeySubject = PassthroughSubject<Bool, Never>()
+        let manager = MenuBarStateManager(
+            processingPublisher: Just(false).eraseToAnyPublisher(),
+            notificationCenter: NotificationCenter(),
+            reduceMotionProvider: { false },
+            hotkeyStatePublisher: hotkeySubject.eraseToAnyPublisher(),
+            initialHotkeyState: true
+        )
+
+        #expect(manager.iconState == .idle)
+
+        hotkeySubject.send(false)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        #expect(manager.iconState == .disabled)
+
+        hotkeySubject.send(true)
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        #expect(manager.iconState == .idle)
     }
 }

@@ -35,6 +35,9 @@ final class MenuBarStateManager: ObservableObject {
     /// Closure that reads the current Reduce Motion setting.
     private let reduceMotionProvider: () -> Bool
 
+    /// Publisher that emits global hotkey listening state changes.
+    private let hotkeyStatePublisher: AnyPublisher<Bool, Never>
+
     /// Combine cancellables for publisher subscriptions.
     private var cancellables = Set<AnyCancellable>()
 
@@ -46,19 +49,28 @@ final class MenuBarStateManager: ObservableObject {
     ///   - processingPublisher: Optional custom publisher for processing state (used in tests).
     ///   - notificationCenter: Notification center for accessibility changes.
     ///   - reduceMotionProvider: Closure that reports the current Reduce Motion preference.
+    ///   - hotkeyStatePublisher: Publisher for hotkey enable/disable state (defaults to HotkeyManager).
+    ///   - initialHotkeyState: Optional override for initial hotkey enabled state (used in tests).
     init(
         processingPublisher: AnyPublisher<Bool, Never>? = nil,
         notificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
-        reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+        reduceMotionProvider: @escaping () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+        hotkeyStatePublisher: AnyPublisher<Bool, Never>? = nil,
+        initialHotkeyState: Bool? = nil
     ) {
         self.processingPublisher = processingPublisher ?? TransformationFlowCoordinator.shared.$isProcessing
             .eraseToAnyPublisher()
         self.notificationCenter = notificationCenter
         self.reduceMotionProvider = reduceMotionProvider
         self.reduceMotionEnabled = reduceMotionProvider()
+        self.hotkeyStatePublisher = hotkeyStatePublisher ?? HotkeyManager.shared.$hotkeyListeningEnabled
+            .eraseToAnyPublisher()
+        let resolvedHotkeyState = initialHotkeyState ?? HotkeyManager.shared.hotkeyListeningEnabled
+        self.stateMachine.setDisabled(!resolvedHotkeyState)
 
         self.observeProcessing()
         self.observeAccessibilityChanges()
+        self.observeHotkeyState()
     }
 
     // MARK: - Forwarded Properties
@@ -119,6 +131,16 @@ final class MenuBarStateManager: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.reduceMotionEnabled = self.reduceMotionProvider()
+            }
+            .store(in: &self.cancellables)
+    }
+
+    private func observeHotkeyState() {
+        self.hotkeyStatePublisher
+            .receive(on: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] isEnabled in
+                self?.stateMachine.setDisabled(!isEnabled)
             }
             .store(in: &self.cancellables)
     }

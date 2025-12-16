@@ -44,6 +44,11 @@ struct TransformationEditorView: View {
     /// Current state of test execution.
     @State private var testState: TransformationTestState = .idle
 
+    // MARK: - Model Selection State
+
+    /// Model resolver for determining defaults.
+    private let modelResolver = ModelResolver()
+
     var body: some View {
         Form {
             // Basic settings
@@ -94,6 +99,10 @@ struct TransformationEditorView: View {
                         ForEach(LLMProvider.allCases) { provider in
                             Text(provider.displayName).tag(provider.rawValue)
                         }
+                    }
+                    // Model picker (only shown when provider is selected)
+                    if !self.providerBinding.wrappedValue.isEmpty {
+                        self.modelPickerSection
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
@@ -209,6 +218,45 @@ struct TransformationEditorView: View {
         }
     }
 
+    // MARK: - Model Picker Section
+
+    @ViewBuilder
+    private var modelPickerSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                TextField("Model (optional)", text: self.modelBinding)
+                    .textFieldStyle(.roundedBorder)
+
+                if !self.modelBinding.wrappedValue.isEmpty {
+                    Button {
+                        self.transformation.model = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Clear to use provider default")
+                }
+            }
+
+            Text("Default: \(self.effectiveModel)")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    /// The effective model that will be used (resolved from hierarchy).
+    private var effectiveModel: String {
+        if let resolution = self.modelResolver.resolveModel(for: self.transformation) {
+            return resolution.model
+        }
+        guard let providerString = self.transformation.provider,
+              let providerKind = LLMProviderKind(rawValue: providerString) else {
+            return "default"
+        }
+        return ModelResolver.fallbackModel(for: providerKind) ?? "default"
+    }
+
     // MARK: - Bindings
 
     /// Binding for provider (handles nil -> empty string conversion).
@@ -216,6 +264,14 @@ struct TransformationEditorView: View {
         Binding(
             get: { self.transformation.provider ?? "" },
             set: { self.transformation.provider = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    /// Binding for model (handles nil -> empty string conversion).
+    private var modelBinding: Binding<String> {
+        Binding(
+            get: { self.transformation.model ?? "" },
+            set: { self.transformation.model = $0.isEmpty ? nil : $0 }
         )
     }
 

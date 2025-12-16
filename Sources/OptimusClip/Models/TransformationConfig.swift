@@ -139,7 +139,7 @@ extension TransformationConfig {
             type: .llm,
             isEnabled: false,
             provider: "anthropic",
-            model: "claude-3-haiku-20240307",
+            model: nil,
             systemPrompt: """
             Format the following text as clean, well-structured Markdown. \
             Use appropriate headers, lists, code blocks, and emphasis where applicable. \
