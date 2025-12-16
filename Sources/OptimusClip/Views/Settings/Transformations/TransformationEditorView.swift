@@ -286,25 +286,48 @@ struct TransformationEditorView: View {
 
     /// Runs an LLM transformation test.
     private func runLLMTest() async throws -> String {
-        let providerName = self.transformation.provider ?? ""
+        // Validate provider is configured
+        guard let providerName = self.transformation.provider,
+              !providerName.isEmpty,
+              let providerKind = LLMProviderKind(rawValue: providerName) else {
+            throw TestError.noProviderConfigured
+        }
 
+        // Create the LLM client using the provider
         let factory = LLMProviderClientFactory()
-        guard let resolved = try? factory.client(for: self.transformation) else {
-            if providerName.isEmpty {
-                throw TestError.noProviderConfigured
-            }
+        guard let client = try? factory.client(for: providerKind),
+              client.isConfigured() else {
             throw TestError.providerNotConfigured(providerName)
         }
+
+        // Use the model from the transformation or a reasonable fallback
+        let model = self.transformation.model ?? Self.fallbackModel(for: providerKind)
 
         let llmTransformation = LLMTransformation(
             id: "test-\(self.transformation.id.uuidString)",
             displayName: self.transformation.name,
-            providerClient: resolved.client,
-            model: resolved.resolution.model,
+            providerClient: client,
+            model: model,
             systemPrompt: self.transformation.systemPrompt
         )
 
         return try await llmTransformation.transform(self.testInput)
+    }
+
+    /// Returns a reasonable fallback model for the given provider.
+    private static func fallbackModel(for provider: LLMProviderKind) -> String {
+        switch provider {
+        case .anthropic:
+            "claude-sonnet-4-20250514"
+        case .openAI:
+            "gpt-4o-mini"
+        case .openRouter:
+            "anthropic/claude-3.5-sonnet"
+        case .ollama:
+            "llama3"
+        case .awsBedrock:
+            "anthropic.claude-3-5-sonnet-20241022-v2:0"
+        }
     }
 }
 
