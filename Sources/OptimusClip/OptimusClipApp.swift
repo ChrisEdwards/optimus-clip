@@ -23,6 +23,9 @@ struct OptimusClipApp: App {
     private let historyStore: HistoryStore
 
     init() {
+        // Migrate any existing Keychain credentials to encrypted storage (one-time)
+        EncryptedStorageService.shared.migrateFromKeychain()
+
         do {
             let container = try HistoryModelContainerFactory.makePersistentContainer()
             self.historyContainer = container

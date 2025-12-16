@@ -1,14 +1,17 @@
 import Foundation
 
-/// Stores provider credentials in the system Keychain and migrates legacy
-/// @AppStorage values out of UserDefaults.
+/// Stores provider credentials using AES-GCM encrypted storage in UserDefaults.
+/// Falls back to migrating legacy @AppStorage values and Keychain entries.
+///
+/// Uses `EncryptedStorageService` instead of Keychain to avoid repeated password
+/// prompts during development (debug builds have unstable code signatures).
 struct APIKeyStore {
     private let keychain: KeychainService
     private let userDefaults: UserDefaults
     private let account = KeychainWrapper.defaultAccount
 
     init(
-        keychain: KeychainService = KeychainWrapper.shared,
+        keychain: KeychainService = EncryptedStorageService.shared,
         userDefaults: UserDefaults = .standard
     ) {
         self.keychain = keychain
