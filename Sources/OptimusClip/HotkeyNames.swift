@@ -11,8 +11,8 @@ import KeyboardShortcuts
 ///
 /// ## Built-in Transformations
 /// These are pre-defined transformations that ship with Optimus Clip:
-/// - `quickFix`: Fast algorithmic cleanup (Cmd+Option+V default)
-/// - `smartFix`: LLM-based intelligent transformation (Cmd+Option+S default)
+/// - `cleanTerminalText`: Fast algorithmic cleanup (Cmd+Option+V default)
+/// - `formatAsMarkdown`: LLM-based markdown formatting (Cmd+Option+S default)
 ///
 /// ## User-Created Transformations
 /// Dynamic transformations created by users get names at runtime via:
@@ -23,25 +23,25 @@ import KeyboardShortcuts
 extension KeyboardShortcuts.Name {
     // MARK: - Built-in Transformations
 
-    /// Quick Fix transformation: Fast algorithmic cleanup.
+    /// Clean Terminal Text transformation: Fast algorithmic cleanup.
     ///
     /// Default shortcut: Cmd+Option+V
     /// - Strips leading/trailing whitespace
-    /// - Normalizes line endings
+    /// - Smart unwraps hard-wrapped text
     /// - No LLM call (instant execution)
-    static let quickFix = Self(
-        "quickFix",
+    static let cleanTerminalText = Self(
+        "cleanTerminalText",
         default: .init(.v, modifiers: [.command, .option])
     )
 
-    /// Smart Fix transformation: LLM-based intelligent transformation.
+    /// Format As Markdown transformation: LLM-based formatting.
     ///
     /// Default shortcut: Cmd+Option+S
     /// - Uses configured LLM provider
-    /// - Context-aware text cleanup
+    /// - Converts text to clean markdown
     /// - Slower but more intelligent
-    static let smartFix = Self(
-        "smartFix",
+    static let formatAsMarkdown = Self(
+        "formatAsMarkdown",
         default: .init(.s, modifiers: [.command, .option])
     )
 

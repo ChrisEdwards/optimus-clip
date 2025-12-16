@@ -245,13 +245,13 @@ extension Duration {
 // MARK: - Convenience Factory Methods
 
 extension TransformationPipeline {
-    /// Creates a "Quick Fix" pipeline with strip whitespace and smart unwrap.
+    /// Creates a "Clean Terminal Text" pipeline with strip whitespace and smart unwrap.
     ///
     /// This is the default algorithmic transformation pipeline for
-    /// fixing CLI output before pasting.
+    /// cleaning up CLI output before pasting.
     ///
     /// - Returns: Pipeline configured with whitespace strip and smart unwrap.
-    public static func quickFix() -> TransformationPipeline {
+    public static func cleanTerminalText() -> TransformationPipeline {
         TransformationPipeline(
             transformations: [
                 WhitespaceStripTransformation(),

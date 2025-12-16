@@ -112,14 +112,14 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
 extension TransformationConfig {
     // MARK: - Stable UUIDs for Defaults
 
-    /// Stable UUID for the default "Quick Fix" transformation.
+    /// Stable UUID for the default "Clean Terminal Text" transformation.
     ///
     /// Using a fixed UUID ensures the KeyboardShortcuts storage persists
     /// across app restarts, since shortcuts are keyed by transformation UUID.
-    private static let quickFixDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
+    private static let cleanTerminalTextDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
 
-    /// Stable UUID for the default "Smart Fix" transformation.
-    private static let smartFixDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
+    /// Stable UUID for the default "Format As Markdown" transformation.
+    private static let formatAsMarkdownDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
 
     /// Default transformations provided on first launch.
     ///
@@ -127,22 +127,23 @@ extension TransformationConfig {
     /// Uses stable UUIDs so recorded shortcuts persist across app restarts.
     static let defaultTransformations: [TransformationConfig] = [
         TransformationConfig(
-            id: quickFixDefaultID,
-            name: "Quick Fix",
+            id: cleanTerminalTextDefaultID,
+            name: "Clean Terminal Text",
             type: .algorithmic,
             isEnabled: true,
             systemPrompt: ""
         ),
         TransformationConfig(
-            id: smartFixDefaultID,
-            name: "Smart Fix",
+            id: formatAsMarkdownDefaultID,
+            name: "Format As Markdown",
             type: .llm,
             isEnabled: false,
             provider: "anthropic",
             model: "claude-3-haiku-20240307",
             systemPrompt: """
-            Clean up and improve the following text. \
-            Fix grammar, spelling, and formatting issues while preserving the original meaning.
+            Format the following text as clean, well-structured Markdown. \
+            Use appropriate headers, lists, code blocks, and emphasis where applicable. \
+            Fix any grammar or spelling issues while preserving the original meaning.
             """
         )
     ]

@@ -199,9 +199,9 @@ struct TransformationPipelineTests {
 
     // MARK: - Factory Method Tests
 
-    @Test("Quick fix pipeline strips and unwraps")
-    func quickFixPipeline() async throws {
-        let pipeline = TransformationPipeline.quickFix()
+    @Test("Clean terminal text pipeline strips and unwraps")
+    func cleanTerminalTextPipeline() async throws {
+        let pipeline = TransformationPipeline.cleanTerminalText()
 
         // Input with 2-space indent (common CLI output)
         let input = "  Hello\n  World"

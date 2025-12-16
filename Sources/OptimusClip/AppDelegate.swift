@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Enforce single instance (defense in depth with LSMultipleInstancesProhibited)
         self.enforceSingleInstance()
 
-        // Register built-in hotkeys (Quick Fix, Smart Fix)
+        // Register built-in hotkeys (Clean Terminal Text, Format As Markdown)
         HotkeyManager.shared.registerBuiltInShortcuts()
 
         // Register saved user transformations

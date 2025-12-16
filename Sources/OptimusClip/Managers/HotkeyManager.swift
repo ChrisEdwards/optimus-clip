@@ -56,33 +56,33 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Built-in Shortcuts
 
-    /// Registers handlers for built-in shortcuts (Quick Fix, Smart Fix).
+    /// Registers handlers for built-in shortcuts (Clean Terminal Text, Format As Markdown).
     ///
     /// Call this once at app startup. The handlers will be active as long as
     /// the app is running.
     func registerBuiltInShortcuts() {
         // Ensure built-in shortcuts have their defaults if not set
         // This handles the case where user cleared the shortcut - reset to default
-        self.ensureDefaultShortcut(for: .quickFix)
-        self.ensureDefaultShortcut(for: .smartFix)
+        self.ensureDefaultShortcut(for: .cleanTerminalText)
+        self.ensureDefaultShortcut(for: .formatAsMarkdown)
 
-        // Quick Fix: Cmd+Option+V
-        KeyboardShortcuts.onKeyUp(for: .quickFix) { [weak self] in
+        // Clean Terminal Text: Cmd+Option+V
+        KeyboardShortcuts.onKeyUp(for: .cleanTerminalText) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                await self.handleBuiltInHotkey(.quickFix)
+                await self.handleBuiltInHotkey(.cleanTerminalText)
             }
         }
-        self.registeredShortcuts.insert(.quickFix)
+        self.registeredShortcuts.insert(.cleanTerminalText)
 
-        // Smart Fix: Cmd+Option+S
-        KeyboardShortcuts.onKeyUp(for: .smartFix) { [weak self] in
+        // Format As Markdown: Cmd+Option+S
+        KeyboardShortcuts.onKeyUp(for: .formatAsMarkdown) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                await self.handleBuiltInHotkey(.smartFix)
+                await self.handleBuiltInHotkey(.formatAsMarkdown)
             }
         }
-        self.registeredShortcuts.insert(.smartFix)
+        self.registeredShortcuts.insert(.formatAsMarkdown)
     }
 
     /// Ensures a built-in shortcut has its default value if currently unset.
@@ -202,7 +202,7 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Hotkey Handlers
 
-    /// Handles a built-in hotkey trigger (Quick Fix or Smart Fix).
+    /// Handles a built-in hotkey trigger (Clean Terminal Text or Format As Markdown).
     ///
     /// - Parameter name: The KeyboardShortcuts.Name that was triggered.
     private func handleBuiltInHotkey(_ name: KeyboardShortcuts.Name) async {
@@ -217,13 +217,16 @@ final class HotkeyManager: ObservableObject {
 
         // Configure pipeline based on which hotkey was pressed
         switch name {
-        case .quickFix:
-            logger.debug("Using Quick Fix pipeline")
-            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
-        case .smartFix:
-            logger.debug("Creating Smart Fix LLM pipeline")
-            guard let pipeline = self.createSmartFixPipeline() else {
-                logger.error("Smart Fix failed: No LLM provider configured. Add API key in Settings > Providers.")
+        case .cleanTerminalText:
+            logger.debug("Using Clean Terminal Text pipeline")
+            self.flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
+        case .formatAsMarkdown:
+            logger.debug("Creating Format As Markdown LLM pipeline")
+            guard let pipeline = self.createFormatAsMarkdownPipeline() else {
+                logger
+                    .error(
+                        "Format As Markdown failed: No LLM provider configured. Add API key in Settings > Providers."
+                    )
                 NSSound.beep()
                 return
             }
@@ -238,19 +241,19 @@ final class HotkeyManager: ObservableObject {
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 
-    /// Creates the default Smart Fix LLM pipeline.
+    /// Creates the default Format As Markdown LLM pipeline.
     ///
-    /// Uses Anthropic Claude as the default provider with a general cleanup prompt.
+    /// Uses Anthropic Claude as the default provider with a markdown formatting prompt.
     /// Falls back to the first configured LLM provider if Anthropic is not available.
     ///
     /// - Returns: A configured LLM pipeline, or `nil` if no LLM provider is configured.
-    private func createSmartFixPipeline() -> TransformationPipeline? {
+    private func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
         let factory = LLMProviderClientFactory()
 
         // Try the default provider (Anthropic) first
         if let client = try? factory.client(for: .anthropic), client.isConfigured() {
-            logger.info("Using Anthropic for Smart Fix")
-            return self.makeSmartFixPipeline(client: client, model: "claude-3-haiku-20240307")
+            logger.info("Using Anthropic for Format As Markdown")
+            return self.makeFormatAsMarkdownPipeline(client: client, model: "claude-3-haiku-20240307")
         }
         logger.debug("Anthropic not configured, checking other providers")
 
@@ -262,16 +265,17 @@ final class HotkeyManager: ObservableObject {
         }
 
         logger.info("Using fallback provider: \(provider.rawValue)")
-        return self.makeSmartFixPipeline(client: client, model: Self.defaultModel(for: provider))
+        return self.makeFormatAsMarkdownPipeline(client: client, model: Self.defaultModel(for: provider))
     }
 
-    /// Creates an LLM pipeline for Smart Fix with the given client and model.
-    private func makeSmartFixPipeline(client: any LLMProviderClient, model: String) -> TransformationPipeline {
-        let prompt = "Clean up and improve the following text. " +
-            "Fix grammar, spelling, and formatting issues while preserving the original meaning."
+    /// Creates an LLM pipeline for Format As Markdown with the given client and model.
+    private func makeFormatAsMarkdownPipeline(client: any LLMProviderClient, model: String) -> TransformationPipeline {
+        let prompt = "Format the following text as clean, well-structured Markdown. " +
+            "Use appropriate headers, lists, code blocks, and emphasis where applicable. " +
+            "Fix any grammar or spelling issues while preserving the original meaning."
         let transformation = LLMTransformation(
-            id: "smart-fix-builtin",
-            displayName: "Smart Fix",
+            id: "format-as-markdown-builtin",
+            displayName: "Format As Markdown",
             providerClient: client,
             model: model,
             systemPrompt: prompt
@@ -308,8 +312,8 @@ final class HotkeyManager: ObservableObject {
         // Configure pipeline based on transformation type
         switch transformation.type {
         case .algorithmic:
-            // Algorithmic transformations use the quickFix pipeline
-            self.flowCoordinator.pipeline = TransformationPipeline.quickFix()
+            // Algorithmic transformations use the cleanTerminalText pipeline
+            self.flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
 
         case .llm:
             // LLM transformations require provider configuration
