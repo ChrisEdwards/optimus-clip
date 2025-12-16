@@ -133,6 +133,26 @@ public struct TransformationPipeline: Sendable {
         self.config = config
     }
 
+    /// Display names of all transformations in the pipeline, in execution order.
+    public var transformationDisplayNames: [String] {
+        self.transformations.map(\.displayName)
+    }
+
+    /// Number of transformations in the pipeline.
+    public var transformationCount: Int {
+        self.transformations.count
+    }
+
+    /// Provider name from the first LLM transformation in the pipeline, if any.
+    public var providerName: String? {
+        for transform in self.transformations {
+            if let metadataProvider = transform as? TransformationHistoryMetadataProviding {
+                return metadataProvider.historyMetadata.providerName
+            }
+        }
+        return nil
+    }
+
     /// Execute all transformations in sequence.
     ///
     /// - Parameter input: Original text from clipboard.

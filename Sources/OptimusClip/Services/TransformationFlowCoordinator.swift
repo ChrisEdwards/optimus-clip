@@ -2,88 +2,6 @@ import AppKit
 import Foundation
 import OptimusClipCore
 
-/// Represents lifecycle states for transformation execution.
-public enum TransformationProcessingState: Sendable {
-    case idle
-    case processing(request: TransformationRequest)
-    case completed(outcome: TransformationFlowOutcome)
-    case failed(request: TransformationRequest, error: TransformationFlowError)
-    case cancelled(request: TransformationRequest)
-}
-
-/// Errors specific to the transformation flow.
-public enum TransformationFlowError: Error, Sendable {
-    /// Accessibility permission is not granted (required for paste simulation).
-    case accessibilityPermissionRequired
-
-    /// Clipboard is empty.
-    case clipboardEmpty
-
-    /// Clipboard contains binary content that cannot be transformed.
-    case binaryContent(type: String)
-
-    /// Detected our own write (self-write marker present).
-    case selfWriteDetected
-
-    /// No text content could be read from clipboard.
-    case noTextContent
-
-    /// Transformation failed.
-    case transformationFailed(Error)
-
-    /// Clipboard write failed.
-    case clipboardWriteFailed(Error)
-
-    /// Paste simulation failed.
-    case pasteSimulationFailed(Error)
-
-    /// A transformation is already in progress.
-    case alreadyProcessing
-
-    /// User-friendly error message.
-    public var message: String {
-        switch self {
-        case .accessibilityPermissionRequired:
-            "Accessibility permission is required to paste transformed content"
-        case .clipboardEmpty:
-            "Clipboard is empty"
-        case let .binaryContent(type):
-            "Cannot transform \(ClipboardContentType.friendlyTypeName(for: type)) - only text content is supported"
-        case .selfWriteDetected:
-            "Content was already transformed by Optimus Clip"
-        case .noTextContent:
-            "No text content found on clipboard"
-        case let .transformationFailed(error):
-            "Transformation failed: \(error.localizedDescription)"
-        case let .clipboardWriteFailed(error):
-            "Failed to write to clipboard: \(error.localizedDescription)"
-        case let .pasteSimulationFailed(error):
-            "Failed to paste: \(error.localizedDescription)"
-        case .alreadyProcessing:
-            "A transformation is already in progress"
-        }
-    }
-}
-
-/// Protocol for receiving transformation flow events.
-///
-/// Implement this to receive notifications about transformation progress,
-/// completion, and errors. Useful for updating UI state.
-@MainActor
-public protocol TransformationFlowDelegate: AnyObject {
-    /// Called when transformation processing begins.
-    func transformationFlowDidStart()
-
-    /// Called when transformation completes successfully.
-    /// - Parameter originalText: The original clipboard text before transformation.
-    /// - Parameter transformedText: The transformed text that was pasted.
-    func transformationFlowDidComplete(originalText: String, transformedText: String)
-
-    /// Called when transformation fails at any stage.
-    /// - Parameter error: The error that occurred.
-    func transformationFlowDidFail(error: TransformationFlowError)
-}
-
 /// Central orchestrator for the clipboard transformation flow.
 ///
 /// The TransformationFlowCoordinator ties together all Phase 2 components:
@@ -203,6 +121,17 @@ public final class TransformationFlowCoordinator: ObservableObject {
 
         let request = self.makeRequest()
 
+        // Show HUD immediately for user feedback
+        let transformationName = self.currentTransformationName
+        HUDNotificationManager.shared.show(
+            transformationName: transformationName,
+            onCancel: { [weak self] in
+                Task { @MainActor in
+                    await self?.cancelCurrentTransformation()
+                }
+            }
+        )
+
         // Launch the transformation work as a Task tracked by the queue.
         let task = Task(priority: .userInitiated) { @MainActor in
             try await self.executeFlow(for: request)
@@ -212,6 +141,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
             try await self.queue.start(request: request, task: task)
         } catch {
             task.cancel()
+            HUDNotificationManager.shared.updateState(.error(message: "Already processing"))
             self.handleFlowError(.alreadyProcessing)
             return false
         }
@@ -220,12 +150,55 @@ public final class TransformationFlowCoordinator: ObservableObject {
         self.lastError = nil
         self.delegate?.transformationFlowDidStart()
 
+        // Update HUD to show we're actively processing
+        HUDNotificationManager.shared.updateState(.receiving(elapsedSeconds: 0))
+
         // Observe completion without blocking the caller.
         Task { @MainActor in
             await self.awaitCompletion(for: request)
         }
 
         return true
+    }
+
+    /// The display name of the current transformation (single or pipeline).
+    private var currentTransformationName: String {
+        if let pipeline = self.pipeline {
+            // For pipelines, use a combined name or the pipeline's name
+            let names = pipeline.transformationDisplayNames
+            let baseName: String
+            if names.count == 1 {
+                baseName = names[0]
+            } else if names.count <= 3 {
+                baseName = names.joined(separator: " + ")
+            } else {
+                baseName = "\(names[0]) + \(names.count - 1) more"
+            }
+            // Add provider info if available
+            if let providerName = self.extractProviderName(from: pipeline) {
+                return "\(baseName) (\(providerName))"
+            }
+            return baseName
+        }
+
+        let baseName = self.transformation.displayName
+        if let providerName = self.extractProviderName(from: self.transformation) {
+            return "\(baseName) (\(providerName))"
+        }
+        return baseName
+    }
+
+    /// Extracts provider name from a transformation if it provides metadata.
+    private func extractProviderName(from transformation: any Transformation) -> String? {
+        guard let metadataProvider = transformation as? TransformationHistoryMetadataProviding else {
+            return nil
+        }
+        return metadataProvider.historyMetadata.providerName
+    }
+
+    /// Extracts provider name from a pipeline's first LLM transformation.
+    private func extractProviderName(from pipeline: TransformationPipeline) -> String? {
+        pipeline.providerName
     }
 
     /// Handles a flow error by restoring clipboard, notifying user, and updating state.
@@ -349,6 +322,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
         guard let task = await self.queue.task() else {
             if case .processing = self.processingState {
                 self.transition(to: .idle)
+                HUDNotificationManager.shared.dismissImmediately()
             }
             return
         }
@@ -357,17 +331,26 @@ public final class TransformationFlowCoordinator: ObservableObject {
             let outcome = try await task.value
             self.recordHistoryEntry(for: outcome)
             self.transition(to: .completed(outcome: outcome))
+
+            // Update HUD to success state (will auto-dismiss and play sound)
+            HUDNotificationManager.shared.updateState(.success)
+
             self.delegate?.transformationFlowDidComplete(
                 originalText: outcome.originalText,
                 transformedText: outcome.transformedText
             )
         } catch is CancellationError {
             self.transition(to: .cancelled(request: request))
+            // HUD already shows cancelled state (set by cancel callback)
         } catch {
             let flowError = (error as? TransformationFlowError)
                 ?? TransformationFlowError.transformationFailed(error)
             self.recordHistoryFailure(for: request, error: flowError, inputText: self.capturedInputText)
             self.transition(to: .failed(request: request, error: flowError))
+
+            // Update HUD to show error (will auto-dismiss after delay)
+            HUDNotificationManager.shared.updateState(.error(message: flowError.shortMessage))
+
             self.handleFlowError(flowError)
         }
 

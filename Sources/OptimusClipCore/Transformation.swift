@@ -79,6 +79,26 @@ public enum TransformationError: Error, Sendable, LocalizedError {
             return "Content too large (\(bytes) bytes, limit \(limit))"
         }
     }
+
+    /// Short message suitable for HUD display.
+    public var shortMessage: String {
+        switch self {
+        case .emptyInput:
+            "Empty input"
+        case .timeout:
+            "Timed out"
+        case .networkError:
+            "Network error"
+        case .authenticationError:
+            "Auth failed"
+        case .rateLimited:
+            "Rate limited"
+        case .contentTooLarge:
+            "Content too large"
+        case .processingError:
+            "Processing error"
+        }
+    }
 }
 
 // MARK: - Placeholder Implementation
