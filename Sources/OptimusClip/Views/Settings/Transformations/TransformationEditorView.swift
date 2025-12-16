@@ -105,15 +105,7 @@ struct TransformationEditorView: View {
                         self.modelPickerSection
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("System Prompt")
-                            .font(.headline)
-
-                        TextEditor(text: self.$transformation.systemPrompt)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(minHeight: 100)
-                            .border(Color.secondary.opacity(0.3))
-                    }
+                    self.systemPromptEditorSection
                 }
             }
 
@@ -224,37 +216,49 @@ struct TransformationEditorView: View {
     private var modelPickerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                TextField("Model (optional)", text: self.modelBinding)
-                    .textFieldStyle(.roundedBorder)
-
+                TextField("Model (optional)", text: self.modelBinding).textFieldStyle(.roundedBorder)
                 if !self.modelBinding.wrappedValue.isEmpty {
-                    Button {
-                        self.transformation.model = nil
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Clear to use provider default")
+                    Button { self.transformation.model = nil } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                    }.buttonStyle(.plain).help("Clear to use provider default")
                 }
             }
-
-            Text("Default: \(self.effectiveModel)")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            Text("Default: \(self.modelResolver.resolveModel(for: self.transformation)?.model ?? "default")")
+                .font(.caption).foregroundColor(.secondary)
         }
     }
 
-    /// The effective model that will be used (resolved from hierarchy).
-    private var effectiveModel: String {
-        if let resolution = self.modelResolver.resolveModel(for: self.transformation) {
-            return resolution.model
+    // MARK: - System Prompt Editor Section
+
+    @ViewBuilder
+    private var systemPromptEditorSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("System Prompt")
+                .font(.headline)
+
+            ZStack(alignment: .topLeading) {
+                if self.transformation.systemPrompt.isEmpty {
+                    Text("Write instructions for the AI...")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .padding(8)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: self.$transformation.systemPrompt)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 100)
+            }
+            .padding(4)
+            .background(Color(nsColor: .textBackgroundColor))
+            .cornerRadius(8)
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.secondary.opacity(0.2)))
+
+            Text("\(self.transformation.systemPrompt.count) characters")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        guard let providerString = self.transformation.provider,
-              let providerKind = LLMProviderKind(rawValue: providerString) else {
-            return "default"
-        }
-        return ModelResolver.fallbackModel(for: providerKind) ?? "default"
     }
 
     // MARK: - Bindings
