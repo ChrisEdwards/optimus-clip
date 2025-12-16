@@ -31,6 +31,9 @@ enum SettingsKey {
     /// Maximum number of history entries to retain.
     static let historyEntryLimit = "historyEntryLimit"
 
+    /// Whether global hotkey listening is enabled.
+    static let hotkeyListeningEnabled = "hotkeyListeningEnabled"
+
     // MARK: - API Keys (legacy @AppStorage keys for Keychain migration)
 
     /// OpenAI API key for GPT models (legacy @AppStorage key; now migrated to Keychain).
@@ -77,6 +80,17 @@ enum SettingsKey {
 
     /// JSON-encoded array of TransformationConfig objects.
     static let transformations = "transformations"
+
+    // MARK: - Onboarding
+
+    /// Whether the app has been launched at least once.
+    static let hasLaunchedBefore = "hasLaunchedBefore"
+
+    /// Whether onboarding has been completed.
+    static let onboardingCompleted = "onboardingCompleted"
+
+    /// Current onboarding step (0-based index).
+    static let onboardingStep = "onboardingStep"
 }
 
 // MARK: - Default Values
@@ -91,6 +105,7 @@ enum DefaultSettings {
     static let soundEffectsEnabled = true
     static let transformationTimeout = 30.0
     static let historyEntryLimit = 100
+    static let hotkeyListeningEnabled = true
 
     // Ollama
     static let ollamaHost = "http://localhost"
@@ -99,4 +114,9 @@ enum DefaultSettings {
     // AWS
     static let awsRegion = "us-east-1"
     static let awsProfile = "default"
+
+    // Onboarding
+    static let hasLaunchedBefore = false
+    static let onboardingCompleted = false
+    static let onboardingStep = 0
 }
