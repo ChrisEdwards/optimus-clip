@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import MenuBarExtraAccess
 import OptimusClipCore
 import SwiftData
@@ -105,7 +106,32 @@ private struct MenuBarMenuContent: View {
     /// Environment action to open the Settings window.
     @Environment(\.openSettings) private var openSettings
 
+    /// Stored transformations (JSON-encoded in UserDefaults).
+    @AppStorage("transformations_data") private var transformationsData: Data = .init()
+
+    /// Decoded transformations from storage.
+    private var transformations: [TransformationConfig] {
+        guard !self.transformationsData.isEmpty else {
+            return TransformationConfig.defaultTransformations
+        }
+        return (try? JSONDecoder().decode([TransformationConfig].self, from: self.transformationsData))
+            ?? TransformationConfig.defaultTransformations
+    }
+
+    /// Enabled transformations only.
+    private var enabledTransformations: [TransformationConfig] {
+        self.transformations.filter(\.isEnabled)
+    }
+
     var body: some View {
+        // Transformations submenu
+        TransformationsSubmenu(
+            enabledTransformations: self.enabledTransformations,
+            openSettings: self.openSettings
+        )
+
+        Divider()
+
         Button("Settings...") {
             // Bring app to foreground since we're in accessory mode (no Dock icon)
             NSApp.activate(ignoringOtherApps: true)
@@ -119,6 +145,120 @@ private struct MenuBarMenuContent: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+// MARK: - Transformations Submenu
+
+/// Submenu showing available transformations with keyboard shortcuts.
+private struct TransformationsSubmenu: View {
+    let enabledTransformations: [TransformationConfig]
+    let openSettings: OpenSettingsAction
+
+    var body: some View {
+        Menu("Transformations") {
+            if self.enabledTransformations.isEmpty {
+                Text("No enabled transformations")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(self.enabledTransformations) { transformation in
+                    TransformationMenuItem(transformation: transformation)
+                }
+            }
+
+            Divider()
+
+            Button("Configure in Settings...") {
+                NSApp.activate(ignoringOtherApps: true)
+                self.openSettings()
+            }
+        }
+    }
+}
+
+// MARK: - Transformation Menu Item
+
+/// Individual menu item for a transformation with keyboard shortcut display.
+private struct TransformationMenuItem: View {
+    let transformation: TransformationConfig
+
+    /// The keyboard shortcut assigned to this transformation, if any.
+    private var shortcut: KeyboardShortcuts.Shortcut? {
+        KeyboardShortcuts.getShortcut(for: self.transformation.shortcutName)
+    }
+
+    var body: some View {
+        Button {
+            Task { @MainActor in
+                await self.triggerTransformation()
+            }
+        } label: {
+            HStack {
+                Text(self.transformation.name)
+                Spacer()
+                if let shortcut {
+                    Text(shortcut.description)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// Triggers the transformation via HotkeyManager.
+    @MainActor
+    private func triggerTransformation() async {
+        let hotkeyManager = HotkeyManager.shared
+        let flowCoordinator = hotkeyManager.flowCoordinator
+
+        // Prevent duplicate execution
+        guard !flowCoordinator.isProcessing else {
+            NSSound.beep()
+            return
+        }
+
+        // Configure pipeline based on transformation type
+        switch self.transformation.type {
+        case .algorithmic:
+            flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
+
+        case .llm:
+            // LLM transformations require provider configuration
+            guard let pipeline = self.createLLMPipeline(for: self.transformation) else {
+                NSSound.beep()
+                return
+            }
+            flowCoordinator.pipeline = pipeline
+        }
+
+        // Execute the transformation flow
+        _ = await flowCoordinator.handleHotkeyTrigger()
+    }
+
+    /// Creates an LLM transformation pipeline from a transformation config.
+    @MainActor
+    private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
+        guard let providerString = transformation.provider,
+              let providerKind = LLMProviderKind(rawValue: providerString),
+              let model = transformation.model,
+              !model.isEmpty else {
+            return nil
+        }
+
+        let factory = LLMProviderClientFactory()
+        guard let client = try? factory.client(for: providerKind),
+              client.isConfigured() else {
+            return nil
+        }
+
+        let llmTransformation = LLMTransformation(
+            id: "llm-\(transformation.id.uuidString)",
+            displayName: transformation.name,
+            providerClient: client,
+            model: model,
+            systemPrompt: transformation.systemPrompt
+        )
+
+        return TransformationPipeline.single(llmTransformation, config: .llm)
     }
 }
 
