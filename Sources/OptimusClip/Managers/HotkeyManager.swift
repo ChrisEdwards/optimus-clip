@@ -147,7 +147,7 @@ final class HotkeyManager: ObservableObject {
         KeyboardShortcuts.onKeyUp(for: shortcutName) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                await self.handleUserTransformationHotkey(transformation)
+                await self.triggerTransformation(transformation)
             }
         }
 
@@ -333,19 +333,24 @@ final class HotkeyManager: ObservableObject {
         ModelResolver.fallbackModel(for: provider) ?? "gpt-4o-mini"
     }
 
-    /// Handles a user-created transformation hotkey trigger.
+    /// Triggers a transformation programmatically (from menu or hotkey).
     ///
-    /// - Parameter transformation: The transformation configuration that was triggered.
-    private func handleUserTransformationHotkey(_ transformation: TransformationConfig) async {
+    /// This is the single source of truth for transformation execution.
+    /// Both hotkey handlers and menu items should use this method.
+    ///
+    /// - Parameter transformation: The transformation configuration to execute.
+    /// - Returns: `true` if transformation was triggered, `false` if blocked.
+    @discardableResult
+    func triggerTransformation(_ transformation: TransformationConfig) async -> Bool {
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
             NSSound.beep()
-            return
+            return false
         }
 
         // Skip if transformation is disabled
         guard transformation.isEnabled else {
-            return
+            return false
         }
 
         // Configure pipeline based on transformation type
@@ -359,13 +364,13 @@ final class HotkeyManager: ObservableObject {
             guard let pipeline = self.createLLMPipeline(for: transformation) else {
                 // LLM not configured - beep and abort
                 NSSound.beep()
-                return
+                return false
             }
             self.flowCoordinator.pipeline = pipeline
         }
 
         // Execute the transformation flow
-        _ = await self.flowCoordinator.handleHotkeyTrigger()
+        return await self.flowCoordinator.handleHotkeyTrigger()
     }
 
     // MARK: - LLM Pipeline Factory

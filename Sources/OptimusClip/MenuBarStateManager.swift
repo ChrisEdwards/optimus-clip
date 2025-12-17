@@ -300,9 +300,18 @@ final class MenuBarStateManager: ObservableObject {
             return true
         }
 
-        // Check Ollama (just needs host configured, no API key required)
-        let ollamaHost = UserDefaults.standard.string(forKey: SettingsKey.ollamaHost) ?? ""
-        if !ollamaHost.isEmpty {
+        // Check Ollama - must be explicitly configured (not just using defaults)
+        // We verify connection was successful by checking if models list was ever fetched,
+        // but for simplicity we require the user to have changed host from default
+        // OR validated the connection (which sets a separate flag in future)
+        // For now: only count Ollama as configured if it differs from default
+        // AND the port is set (indicating intentional configuration)
+        let ollamaHost = UserDefaults.standard.string(forKey: SettingsKey.ollamaHost)
+        let ollamaPort = UserDefaults.standard.string(forKey: SettingsKey.ollamaPort)
+        // Consider configured if user has explicitly set values (not just defaults)
+        let hostIsCustom = ollamaHost != nil && ollamaHost != DefaultSettings.ollamaHost
+        let portIsCustom = ollamaPort != nil && ollamaPort != DefaultSettings.ollamaPort
+        if hostIsCustom || portIsCustom {
             return true
         }
 
@@ -311,7 +320,7 @@ final class MenuBarStateManager: ObservableObject {
 
     /// Default implementation to check if any enabled transformation is LLM type.
     private static let defaultLLMTransformationsChecker: () -> Bool = {
-        guard let data = UserDefaults.standard.data(forKey: "transformations_data"),
+        guard let data = UserDefaults.standard.data(forKey: SettingsKey.transformationsData),
               let transformations = try? JSONDecoder().decode([TransformationConfig].self, from: data) else {
             // Check default transformations if no custom ones exist
             return TransformationConfig.defaultTransformations.contains { $0.isEnabled && $0.type == .llm }

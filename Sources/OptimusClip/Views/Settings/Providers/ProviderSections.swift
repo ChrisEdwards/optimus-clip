@@ -659,17 +659,35 @@ struct AWSBedrockProviderSection: View {
     @ViewBuilder
     private var keysAuthFields: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Warning: SigV4 signing is not yet implemented
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text("Access Key auth requires SigV4 signing which is not yet implemented")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(8)
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(6)
+
             SecureField("Access Key ID", text: self.$accessKey, prompt: Text("AKIA..."))
                 .textFieldStyle(.roundedBorder)
+                .disabled(true) // Disabled until SigV4 is implemented
                 .onChange(of: self.accessKey) { _, _ in
                     self.validationState = .idle
                 }
 
             SecureField("Secret Access Key", text: self.$secretKey, prompt: Text("..."))
                 .textFieldStyle(.roundedBorder)
+                .disabled(true) // Disabled until SigV4 is implemented
                 .onChange(of: self.secretKey) { _, _ in
                     self.validationState = .idle
                 }
+
+            Text("Use Bearer Token or AWS Profile authentication instead")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -693,7 +711,8 @@ struct AWSBedrockProviderSection: View {
         case .profile:
             !self.profile.isEmpty
         case .keys:
-            !self.accessKey.isEmpty && !self.secretKey.isEmpty
+            // Access Keys auth is disabled until SigV4 is implemented
+            false
         case .bearerToken:
             !self.bearerToken.isEmpty
         }
@@ -740,7 +759,8 @@ struct AWSBedrockProviderSection: View {
         case .profile:
             self.profile.isEmpty
         case .keys:
-            self.accessKey.isEmpty || self.secretKey.isEmpty
+            // Access Keys auth is disabled until SigV4 is implemented
+            true
         case .bearerToken:
             self.bearerToken.isEmpty
         }
