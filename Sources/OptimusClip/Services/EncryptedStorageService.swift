@@ -14,16 +14,27 @@ final class EncryptedStorageService: KeychainService, @unchecked Sendable {
 
     private let defaults: UserDefaults
     private let encryptionKey: SymmetricKey
+    private let legacyKey: SymmetricKey
     private let keyPrefix = "com.optimusclip.encrypted."
 
     init(defaults: UserDefaults = .standard, keySeed: String = "com.optimusclip.secure.storage.v1") {
         self.defaults = defaults
-        // Derive a stable encryption key from a fixed seed + device identifier
-        // This ensures the key survives app restarts but is unique per device
         let deviceID = Self.getDeviceIdentifier()
+
+        // Primary key: HKDF (HMAC-based Key Derivation Function) - secure standard
+        let inputKeyMaterial = SymmetricKey(data: Data(keySeed.utf8))
+        let salt = Data(deviceID.utf8)
+        self.encryptionKey = HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: inputKeyMaterial,
+            salt: salt,
+            info: Data("optimus-clip-api-key-encryption".utf8),
+            outputByteCount: 32
+        )
+
+        // Legacy key: simple SHA256 hash (for migration from pre-HKDF versions)
         let combinedSeed = "\(keySeed).\(deviceID)"
-        let keyData = SHA256.hash(data: Data(combinedSeed.utf8))
-        self.encryptionKey = SymmetricKey(data: keyData)
+        let legacyKeyData = SHA256.hash(data: Data(combinedSeed.utf8))
+        self.legacyKey = SymmetricKey(data: legacyKeyData)
     }
 
     // MARK: - KeychainService Protocol
@@ -49,11 +60,22 @@ final class EncryptedStorageService: KeychainService, @unchecked Sendable {
         }
 
         let sealedBox = try AES.GCM.SealedBox(combined: combined)
-        let decrypted = try AES.GCM.open(sealedBox, using: self.encryptionKey)
 
-        guard let string = String(data: decrypted, encoding: .utf8) else {
-            throw EncryptedStorageError.decodingFailed
+        // Try primary key first
+        if let decrypted = try? AES.GCM.open(sealedBox, using: self.encryptionKey),
+           let string = String(data: decrypted, encoding: .utf8) {
+            return string
         }
+
+        // Fall back to legacy key for migration
+        guard let decrypted = try? AES.GCM.open(sealedBox, using: self.legacyKey),
+              let string = String(data: decrypted, encoding: .utf8) else {
+            throw EncryptedStorageError.decryptionFailed
+        }
+
+        // Auto-migrate: re-encrypt with new key
+        try self.saveString(string, service: service, account: account)
+        migrationLogger.info("Migrated \(service)/\(account) to HKDF encryption")
 
         return string
     }
