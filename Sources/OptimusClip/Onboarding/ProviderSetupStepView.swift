@@ -94,8 +94,6 @@ struct ProviderSetupStepView: View {
         }
     }
 
-    // MARK: - Provider Selection Section
-
     @ViewBuilder
     private var providerSelectionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -117,8 +115,6 @@ struct ProviderSetupStepView: View {
         }
         .frame(maxWidth: 400)
     }
-
-    // MARK: - Credentials Section
 
     @ViewBuilder
     private var credentialsSection: some View {
@@ -205,8 +201,6 @@ struct ProviderSetupStepView: View {
         }
     }
 
-    // MARK: - Validation Section
-
     @ViewBuilder
     private var validationSection: some View {
         VStack(spacing: 12) {
@@ -253,8 +247,6 @@ struct ProviderSetupStepView: View {
         .padding(.vertical, 8)
     }
 
-    // MARK: - Action Buttons
-
     @ViewBuilder
     private var actionButtons: some View {
         VStack(spacing: 12) {
@@ -281,8 +273,6 @@ struct ProviderSetupStepView: View {
         }
     }
 
-    // MARK: - Computed Properties
-
     private var hasInput: Bool {
         switch self.selectedProvider {
         case .openAI:
@@ -304,8 +294,6 @@ struct ProviderSetupStepView: View {
     private var hasOllamaConfig: Bool {
         !self.ollamaHost.isEmpty && !self.ollamaPort.isEmpty
     }
-
-    // MARK: - Actions
 
     private func validateCredentials() async {
         self.validationState = .validating
