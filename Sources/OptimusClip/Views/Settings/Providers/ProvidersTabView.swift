@@ -12,6 +12,11 @@ import SwiftUI
 /// - **AWS Bedrock**: Profile or access keys with region
 ///
 /// API keys are stored in the system Keychain (Phase 6 requirement).
+///
+/// ## Visual Hierarchy
+/// - Summary header shows configuration status at a glance
+/// - Configured providers are expanded by default
+/// - Unconfigured providers are collapsed with "Click to configure" prompt
 struct ProvidersTabView: View {
     private let apiKeyStore = APIKeyStore()
 
@@ -48,53 +53,140 @@ struct ProvidersTabView: View {
     @State private var ollamaValidation: ValidationState = .idle
     @State private var bedrockValidation: ValidationState = .idle
 
+    // Expansion states for disclosure groups
+    @State private var isOpenAIExpanded = false
+    @State private var isAnthropicExpanded = false
+    @State private var isOpenRouterExpanded = false
+    @State private var isOllamaExpanded = false
+    @State private var isBedrockExpanded = false
+
+    // MARK: - Configuration Status
+
+    private var isOpenAIConfigured: Bool { !self.openAIKey.isEmpty }
+    private var isAnthropicConfigured: Bool { !self.anthropicKey.isEmpty }
+    private var isOpenRouterConfigured: Bool { !self.openRouterKey.isEmpty }
+    private var isOllamaConfigured: Bool { !self.ollamaHost.isEmpty && self.ollamaHost != "http://localhost" }
+    private var isBedrockConfigured: Bool {
+        let method = AWSAuthMethod(rawValue: self.awsAuthMethod) ?? .profile
+        return switch method {
+        case .profile: !self.awsProfile.isEmpty
+        case .keys: !self.awsAccessKey.isEmpty && !self.awsSecretKey.isEmpty
+        case .bearerToken: !self.awsBearerToken.isEmpty
+        }
+    }
+
+    private var configuredCount: Int {
+        [
+            self.isOpenAIConfigured,
+            self.isAnthropicConfigured,
+            self.isOpenRouterConfigured,
+            self.isOllamaConfigured,
+            self.isBedrockConfigured
+        ].count(where: { $0 })
+    }
+
     var body: some View {
         ScrollView {
-            Form {
-                OpenAIProviderSection(
-                    apiKey: self.$openAIKey,
-                    modelId: self.$openAIModelId,
-                    validationState: self.$openAIValidation
+            VStack(spacing: 0) {
+                // Summary header
+                ProviderSummaryHeader(
+                    configuredCount: self.configuredCount,
+                    isOpenAIConfigured: self.isOpenAIConfigured,
+                    isAnthropicConfigured: self.isAnthropicConfigured,
+                    isOpenRouterConfigured: self.isOpenRouterConfigured,
+                    isOllamaConfigured: self.isOllamaConfigured,
+                    isBedrockConfigured: self.isBedrockConfigured
                 )
+                .padding(.horizontal)
+                .padding(.top, 8)
 
-                AnthropicProviderSection(
-                    apiKey: self.$anthropicKey,
-                    modelId: self.$anthropicModelId,
-                    validationState: self.$anthropicValidation
-                )
+                Form {
+                    // OpenAI
+                    DisclosureGroup(isExpanded: self.$isOpenAIExpanded) {
+                        OpenAIProviderSection(
+                            apiKey: self.$openAIKey,
+                            modelId: self.$openAIModelId,
+                            validationState: self.$openAIValidation
+                        )
+                    } label: {
+                        ProviderHeaderLabel(
+                            name: "OpenAI",
+                            isConfigured: self.isOpenAIConfigured
+                        )
+                    }
 
-                OpenRouterProviderSection(
-                    apiKey: self.$openRouterKey,
-                    modelId: self.$openRouterModelId,
-                    validationState: self.$openRouterValidation
-                )
+                    // Anthropic
+                    DisclosureGroup(isExpanded: self.$isAnthropicExpanded) {
+                        AnthropicProviderSection(
+                            apiKey: self.$anthropicKey,
+                            modelId: self.$anthropicModelId,
+                            validationState: self.$anthropicValidation
+                        )
+                    } label: {
+                        ProviderHeaderLabel(
+                            name: "Anthropic",
+                            isConfigured: self.isAnthropicConfigured
+                        )
+                    }
 
-                OllamaProviderSection(
-                    host: self.$ollamaHost,
-                    port: self.$ollamaPort,
-                    modelId: self.$ollamaModelId,
-                    validationState: self.$ollamaValidation
-                )
+                    // OpenRouter
+                    DisclosureGroup(isExpanded: self.$isOpenRouterExpanded) {
+                        OpenRouterProviderSection(
+                            apiKey: self.$openRouterKey,
+                            modelId: self.$openRouterModelId,
+                            validationState: self.$openRouterValidation
+                        )
+                    } label: {
+                        ProviderHeaderLabel(
+                            name: "OpenRouter",
+                            isConfigured: self.isOpenRouterConfigured
+                        )
+                    }
 
-                AWSBedrockProviderSection(
-                    authMethod: Binding(
-                        get: { AWSAuthMethod(rawValue: self.awsAuthMethod) ?? .profile },
-                        set: { self.awsAuthMethod = $0.rawValue }
-                    ),
-                    profile: self.$awsProfile,
-                    accessKey: self.$awsAccessKey,
-                    secretKey: self.$awsSecretKey,
-                    bearerToken: self.$awsBearerToken,
-                    region: self.$awsRegion,
-                    modelId: self.$awsModelId,
-                    validationState: self.$bedrockValidation
-                )
+                    // Ollama
+                    DisclosureGroup(isExpanded: self.$isOllamaExpanded) {
+                        OllamaProviderSection(
+                            host: self.$ollamaHost,
+                            port: self.$ollamaPort,
+                            modelId: self.$ollamaModelId,
+                            validationState: self.$ollamaValidation
+                        )
+                    } label: {
+                        ProviderHeaderLabel(
+                            name: "Ollama (Local)",
+                            isConfigured: self.isOllamaConfigured
+                        )
+                    }
+
+                    // AWS Bedrock
+                    DisclosureGroup(isExpanded: self.$isBedrockExpanded) {
+                        AWSBedrockProviderSection(
+                            authMethod: Binding(
+                                get: { AWSAuthMethod(rawValue: self.awsAuthMethod) ?? .profile },
+                                set: { self.awsAuthMethod = $0.rawValue }
+                            ),
+                            profile: self.$awsProfile,
+                            accessKey: self.$awsAccessKey,
+                            secretKey: self.$awsSecretKey,
+                            bearerToken: self.$awsBearerToken,
+                            region: self.$awsRegion,
+                            modelId: self.$awsModelId,
+                            validationState: self.$bedrockValidation
+                        )
+                    } label: {
+                        ProviderHeaderLabel(
+                            name: "AWS Bedrock",
+                            isConfigured: self.isBedrockConfigured
+                        )
+                    }
+                }
+                .formStyle(.grouped)
+                .padding()
             }
-            .formStyle(.grouped)
-            .padding()
         }
         .task {
             self.loadKeysFromKeychain()
+            self.initializeExpansionState()
         }
         .onChange(of: self.openAIKey) { _, newValue in
             self.persistOpenAIKey(newValue)
@@ -113,6 +205,104 @@ struct ProvidersTabView: View {
         }
         .onChange(of: self.awsBearerToken) { _, newValue in
             self.persistAWSBearerToken(newValue)
+        }
+    }
+
+    /// Set initial expansion state based on configuration status.
+    private func initializeExpansionState() {
+        // Expand configured providers, collapse unconfigured
+        self.isOpenAIExpanded = self.isOpenAIConfigured
+        self.isAnthropicExpanded = self.isAnthropicConfigured
+        self.isOpenRouterExpanded = self.isOpenRouterConfigured
+        self.isOllamaExpanded = self.isOllamaConfigured
+        self.isBedrockExpanded = self.isBedrockConfigured
+
+        // If none configured, expand OpenAI as the default
+        if self.configuredCount == 0 {
+            self.isOpenAIExpanded = true
+        }
+    }
+}
+
+// MARK: - Provider Summary Header
+
+/// Summary header showing overall configuration status.
+private struct ProviderSummaryHeader: View {
+    let configuredCount: Int
+    let isOpenAIConfigured: Bool
+    let isAnthropicConfigured: Bool
+    let isOpenRouterConfigured: Bool
+    let isOllamaConfigured: Bool
+    let isBedrockConfigured: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("LLM Providers")
+                    .font(.headline)
+                Spacer()
+                Text("\(self.configuredCount) of 5 configured")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                ProviderStatusBadge(name: "OpenAI", isConfigured: self.isOpenAIConfigured)
+                ProviderStatusBadge(name: "Anthropic", isConfigured: self.isAnthropicConfigured)
+                ProviderStatusBadge(name: "OpenRouter", isConfigured: self.isOpenRouterConfigured)
+                ProviderStatusBadge(name: "Ollama", isConfigured: self.isOllamaConfigured)
+                ProviderStatusBadge(name: "Bedrock", isConfigured: self.isBedrockConfigured)
+            }
+        }
+        .padding()
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Small badge showing provider configuration status.
+private struct ProviderStatusBadge: View {
+    let name: String
+    let isConfigured: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: self.isConfigured ? "checkmark.circle.fill" : "circle")
+                .font(.caption)
+                .foregroundStyle(self.isConfigured ? .green : .secondary)
+            Text(self.name)
+                .font(.caption)
+                .foregroundStyle(self.isConfigured ? .primary : .secondary)
+        }
+    }
+}
+
+// MARK: - Provider Header Label
+
+/// Label for disclosure group showing provider name and configuration status.
+private struct ProviderHeaderLabel: View {
+    let name: String
+    let isConfigured: Bool
+
+    var body: some View {
+        HStack {
+            Text(self.name)
+                .font(.headline)
+
+            Spacer()
+
+            if self.isConfigured {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Configured")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text("Click to configure")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

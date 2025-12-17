@@ -72,69 +72,67 @@ struct OpenAIProviderSection: View {
     @State private var isLoadingModels = false
 
     var body: some View {
-        Section("OpenAI") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    SecureField("API Key", text: self.$apiKey, prompt: Text("sk-..."))
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: self.apiKey) { _, _ in
-                            self.validationState = .idle
-                            self.availableModels = []
-                        }
-                }
-
-                // Model selection
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Model")
-                            .frame(width: 50, alignment: .leading)
-
-                        ComboBox(
-                            text: self.$modelId,
-                            items: self.availableModels.map(\.id),
-                            placeholder: "gpt-4o-mini"
-                        )
-                        .frame(height: 24)
-                        .onChange(of: self.modelId) { _, _ in
-                            self.validationState = .idle
-                        }
-
-                        Button(action: self.fetchModels) {
-                            if self.isLoadingModels {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Text("Fetch")
-                            }
-                        }
-                        .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SecureField("API Key", text: self.$apiKey, prompt: Text("sk-..."))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: self.apiKey) { _, _ in
+                        self.validationState = .idle
+                        self.availableModels = []
                     }
-
-                    if self.availableModels.isEmpty {
-                        Text("Click Fetch to load available models")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("\(self.availableModels.count) models available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    ValidateButton(
-                        state: self.validationState,
-                        isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
-                        action: self.validateAPIKey
-                    )
-
-                    Spacer()
-                }
-
-                ValidationStatusView(state: self.validationState)
-
-                ProviderHelpLink(provider: .openai)
             }
+
+            // Model selection
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Model")
+                        .frame(width: 50, alignment: .leading)
+
+                    ComboBox(
+                        text: self.$modelId,
+                        items: self.availableModels.map(\.id),
+                        placeholder: "gpt-4o-mini"
+                    )
+                    .frame(height: 24)
+                    .onChange(of: self.modelId) { _, _ in
+                        self.validationState = .idle
+                    }
+
+                    Button(action: self.fetchModels) {
+                        if self.isLoadingModels {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Fetch")
+                        }
+                    }
+                    .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+                }
+
+                if self.availableModels.isEmpty {
+                    Text("Click Fetch to load available models")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(self.availableModels.count) models available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack {
+                ValidateButton(
+                    state: self.validationState,
+                    isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
+                    action: self.validateAPIKey
+                )
+
+                Spacer()
+            }
+
+            ValidationStatusView(state: self.validationState)
+
+            ProviderHelpLink(provider: .openai)
         }
     }
 
@@ -189,52 +187,50 @@ struct AnthropicProviderSection: View {
     private let availableModels = AnthropicValidator.knownModels
 
     var body: some View {
-        Section("Anthropic") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    SecureField("API Key", text: self.$apiKey, prompt: Text("sk-ant-..."))
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: self.apiKey) { _, _ in
-                            self.validationState = .idle
-                        }
-                }
-
-                // Model selection (static list - Anthropic has no public models API)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Model")
-                            .frame(width: 50, alignment: .leading)
-
-                        ComboBox(
-                            text: self.$modelId,
-                            items: self.availableModels.map(\.id),
-                            placeholder: "claude-3-5-sonnet-..."
-                        )
-                        .frame(height: 24)
-                        .onChange(of: self.modelId) { _, _ in
-                            self.validationState = .idle
-                        }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SecureField("API Key", text: self.$apiKey, prompt: Text("sk-ant-..."))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: self.apiKey) { _, _ in
+                        self.validationState = .idle
                     }
-
-                    Text("\(self.availableModels.count) models available")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                HStack {
-                    ValidateButton(
-                        state: self.validationState,
-                        isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
-                        action: self.validateAPIKey
-                    )
-
-                    Spacer()
-                }
-
-                ValidationStatusView(state: self.validationState)
-
-                ProviderHelpLink(provider: .anthropic)
             }
+
+            // Model selection (static list - Anthropic has no public models API)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Model")
+                        .frame(width: 50, alignment: .leading)
+
+                    ComboBox(
+                        text: self.$modelId,
+                        items: self.availableModels.map(\.id),
+                        placeholder: "claude-3-5-sonnet-..."
+                    )
+                    .frame(height: 24)
+                    .onChange(of: self.modelId) { _, _ in
+                        self.validationState = .idle
+                    }
+                }
+
+                Text("\(self.availableModels.count) models available")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                ValidateButton(
+                    state: self.validationState,
+                    isDisabled: self.apiKey.isEmpty || self.modelId.isEmpty,
+                    action: self.validateAPIKey
+                )
+
+                Spacer()
+            }
+
+            ValidationStatusView(state: self.validationState)
+
+            ProviderHelpLink(provider: .anthropic)
         }
     }
 
@@ -271,69 +267,67 @@ struct OpenRouterProviderSection: View {
     @State private var isLoadingModels = false
 
     var body: some View {
-        Section("OpenRouter") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    SecureField("API Key", text: self.$apiKey, prompt: Text("sk-or-..."))
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: self.apiKey) { _, _ in
-                            self.validationState = .idle
-                            self.availableModels = []
-                        }
-                }
-
-                // Model selection
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Model")
-                            .frame(width: 50, alignment: .leading)
-
-                        ComboBox(
-                            text: self.$modelId,
-                            items: self.availableModels.map(\.id),
-                            placeholder: "anthropic/claude-3.5-sonnet"
-                        )
-                        .frame(height: 24)
-                        .onChange(of: self.modelId) { _, _ in
-                            self.validationState = .idle
-                        }
-
-                        Button(action: self.fetchModels) {
-                            if self.isLoadingModels {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Text("Fetch")
-                            }
-                        }
-                        .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SecureField("API Key", text: self.$apiKey, prompt: Text("sk-or-..."))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: self.apiKey) { _, _ in
+                        self.validationState = .idle
+                        self.availableModels = []
                     }
-
-                    if self.availableModels.isEmpty {
-                        Text("Click Fetch to load 100+ available models")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("\(self.availableModels.count) models available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    ValidateButton(
-                        state: self.validationState,
-                        isDisabled: self.apiKey.isEmpty,
-                        action: self.validateAPIKey
-                    )
-
-                    Spacer()
-                }
-
-                ValidationStatusView(state: self.validationState)
-
-                ProviderHelpLink(provider: .openRouter)
             }
+
+            // Model selection
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Model")
+                        .frame(width: 50, alignment: .leading)
+
+                    ComboBox(
+                        text: self.$modelId,
+                        items: self.availableModels.map(\.id),
+                        placeholder: "anthropic/claude-3.5-sonnet"
+                    )
+                    .frame(height: 24)
+                    .onChange(of: self.modelId) { _, _ in
+                        self.validationState = .idle
+                    }
+
+                    Button(action: self.fetchModels) {
+                        if self.isLoadingModels {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Fetch")
+                        }
+                    }
+                    .disabled(self.isLoadingModels || self.apiKey.isEmpty)
+                }
+
+                if self.availableModels.isEmpty {
+                    Text("Click Fetch to load 100+ available models")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(self.availableModels.count) models available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack {
+                ValidateButton(
+                    state: self.validationState,
+                    isDisabled: self.apiKey.isEmpty,
+                    action: self.validateAPIKey
+                )
+
+                Spacer()
+            }
+
+            ValidationStatusView(state: self.validationState)
+
+            ProviderHelpLink(provider: .openRouter)
         }
     }
 
@@ -390,89 +384,87 @@ struct OllamaProviderSection: View {
     @State private var isLoadingModels = false
 
     var body: some View {
-        Section("Ollama (Local)") {
-            VStack(alignment: .leading, spacing: 8) {
-                // Host row
-                HStack {
-                    Text("Host")
-                        .frame(width: 50, alignment: .leading)
+        VStack(alignment: .leading, spacing: 8) {
+            // Host row
+            HStack {
+                Text("Host")
+                    .frame(width: 50, alignment: .leading)
 
-                    TextField("", text: self.$host, prompt: Text("http://localhost"))
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: self.host) { _, _ in
-                            self.validationState = .idle
-                            self.availableModels = []
-                        }
-                }
-
-                // Port row
-                HStack {
-                    Text("Port")
-                        .frame(width: 50, alignment: .leading)
-
-                    TextField("", text: self.$port, prompt: Text("11434"))
-                        .textFieldStyle(.roundedBorder)
-                        .onChange(of: self.port) { _, _ in
-                            self.validationState = .idle
-                            self.availableModels = []
-                        }
-                }
-
-                // Model selection
-                HStack {
-                    Text("Model")
-                        .frame(width: 50, alignment: .leading)
-
-                    ComboBox(
-                        text: self.$modelId,
-                        items: self.availableModels.map(\.name),
-                        placeholder: "llama3.2"
-                    )
-                    .frame(height: 24)
-                    .onChange(of: self.modelId) { _, _ in
+                TextField("", text: self.$host, prompt: Text("http://localhost"))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: self.host) { _, _ in
                         self.validationState = .idle
+                        self.availableModels = []
                     }
+            }
 
-                    Button(action: self.fetchModels) {
-                        if self.isLoadingModels {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Text("Fetch")
-                        }
+            // Port row
+            HStack {
+                Text("Port")
+                    .frame(width: 50, alignment: .leading)
+
+                TextField("", text: self.$port, prompt: Text("11434"))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: self.port) { _, _ in
+                        self.validationState = .idle
+                        self.availableModels = []
                     }
-                    .disabled(self.isLoadingModels || self.host.isEmpty)
+            }
+
+            // Model selection
+            HStack {
+                Text("Model")
+                    .frame(width: 50, alignment: .leading)
+
+                ComboBox(
+                    text: self.$modelId,
+                    items: self.availableModels.map(\.name),
+                    placeholder: "llama3.2"
+                )
+                .frame(height: 24)
+                .onChange(of: self.modelId) { _, _ in
+                    self.validationState = .idle
                 }
 
-                if self.availableModels.isEmpty {
-                    Text("Click Fetch to load locally installed models")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("\(self.availableModels.count) models installed")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                Button(action: self.fetchModels) {
+                    if self.isLoadingModels {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Text("Fetch")
+                    }
                 }
+                .disabled(self.isLoadingModels || self.host.isEmpty)
+            }
 
-                HStack {
-                    ValidateButton(
-                        state: self.validationState,
-                        isDisabled: self.host.isEmpty,
-                        action: self.testConnection,
-                        label: "Test Connection"
-                    )
-
-                    Spacer()
-                }
-
-                ValidationStatusView(state: self.validationState)
-
-                Text("Run `ollama serve` to start the local server")
+            if self.availableModels.isEmpty {
+                Text("Click Fetch to load locally installed models")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                ProviderHelpLink(provider: .ollama, label: "Download Ollama")
+            } else {
+                Text("\(self.availableModels.count) models installed")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+
+            HStack {
+                ValidateButton(
+                    state: self.validationState,
+                    isDisabled: self.host.isEmpty,
+                    action: self.testConnection,
+                    label: "Test Connection"
+                )
+
+                Spacer()
+            }
+
+            ValidationStatusView(state: self.validationState)
+
+            Text("Run `ollama serve` to start the local server")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            ProviderHelpLink(provider: .ollama, label: "Download Ollama")
         }
     }
 
@@ -565,89 +557,87 @@ struct AWSBedrockProviderSection: View {
     ]
 
     var body: some View {
-        Section("AWS Bedrock") {
-            VStack(alignment: .leading, spacing: 12) {
-                Picker("Authentication", selection: self.$authMethod) {
-                    ForEach(AWSAuthMethod.allCases) { method in
-                        Text(method.displayName).tag(method)
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("Authentication", selection: self.$authMethod) {
+                ForEach(AWSAuthMethod.allCases) { method in
+                    Text(method.displayName).tag(method)
                 }
-                .pickerStyle(.segmented)
-                .onChange(of: self.authMethod) { _, _ in
-                    self.validationState = .idle
-                }
-
-                switch self.authMethod {
-                case .profile:
-                    self.profileAuthFields
-                case .keys:
-                    self.keysAuthFields
-                case .bearerToken:
-                    self.bearerTokenAuthFields
-                }
-
-                Picker("Region", selection: self.$region) {
-                    ForEach(self.awsRegions, id: \.self) { region in
-                        Text(region).tag(region)
-                    }
-                }
-                .onChange(of: self.region) { _, _ in
-                    self.validationState = .idle
-                    self.availableModels = []
-                }
-
-                // Model selection with native combobox
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Model")
-                            .frame(width: 60, alignment: .leading)
-
-                        ComboBox(
-                            text: self.$modelId,
-                            items: self.availableModels.map(\.id),
-                            placeholder: "anthropic.claude-3-..."
-                        )
-                        .frame(height: 24)
-                        .onChange(of: self.modelId) { _, _ in
-                            self.validationState = .idle
-                        }
-
-                        Button(action: self.fetchModels) {
-                            if self.isLoadingModels {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Text("Fetch")
-                            }
-                        }
-                        .disabled(self.isLoadingModels || !self.canFetchModels)
-                    }
-
-                    if self.availableModels.isEmpty {
-                        Text("Click Fetch to load available models, or type a model ID directly")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else {
-                        Text("\(self.availableModels.count) models available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                HStack {
-                    ValidateButton(
-                        state: self.validationState,
-                        isDisabled: self.isValidationDisabled,
-                        action: self.validateCredentials
-                    )
-
-                    Spacer()
-                }
-
-                ValidationStatusView(state: self.validationState)
-
-                ProviderHelpLink(provider: .awsBedrock, label: "AWS Bedrock Console")
             }
+            .pickerStyle(.segmented)
+            .onChange(of: self.authMethod) { _, _ in
+                self.validationState = .idle
+            }
+
+            switch self.authMethod {
+            case .profile:
+                self.profileAuthFields
+            case .keys:
+                self.keysAuthFields
+            case .bearerToken:
+                self.bearerTokenAuthFields
+            }
+
+            Picker("Region", selection: self.$region) {
+                ForEach(self.awsRegions, id: \.self) { region in
+                    Text(region).tag(region)
+                }
+            }
+            .onChange(of: self.region) { _, _ in
+                self.validationState = .idle
+                self.availableModels = []
+            }
+
+            // Model selection with native combobox
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Model")
+                        .frame(width: 60, alignment: .leading)
+
+                    ComboBox(
+                        text: self.$modelId,
+                        items: self.availableModels.map(\.id),
+                        placeholder: "anthropic.claude-3-..."
+                    )
+                    .frame(height: 24)
+                    .onChange(of: self.modelId) { _, _ in
+                        self.validationState = .idle
+                    }
+
+                    Button(action: self.fetchModels) {
+                        if self.isLoadingModels {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Text("Fetch")
+                        }
+                    }
+                    .disabled(self.isLoadingModels || !self.canFetchModels)
+                }
+
+                if self.availableModels.isEmpty {
+                    Text("Click Fetch to load available models, or type a model ID directly")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(self.availableModels.count) models available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            HStack {
+                ValidateButton(
+                    state: self.validationState,
+                    isDisabled: self.isValidationDisabled,
+                    action: self.validateCredentials
+                )
+
+                Spacer()
+            }
+
+            ValidationStatusView(state: self.validationState)
+
+            ProviderHelpLink(provider: .awsBedrock, label: "AWS Bedrock Console")
         }
     }
 
