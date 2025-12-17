@@ -8,6 +8,17 @@ public enum LLMProviderKind: String, Sendable {
     case openRouter
     case ollama
     case awsBedrock
+
+    /// Human-readable display name for UI purposes.
+    public var displayName: String {
+        switch self {
+        case .openAI: "OpenAI"
+        case .anthropic: "Anthropic"
+        case .openRouter: "OpenRouter"
+        case .ollama: "Ollama"
+        case .awsBedrock: "AWS Bedrock"
+        }
+    }
 }
 
 public enum LLMCredentials: Sendable {
