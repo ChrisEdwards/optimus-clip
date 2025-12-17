@@ -170,8 +170,11 @@ public struct TransformationPipeline: Sendable {
             throw PipelineError.emptyPipeline
         }
 
-        // Execute with timeout
-        return try await self.withTimeout(self.config.timeout) {
+        // Execute with timeout using shared utility
+        return try await withTimeout(
+            self.config.timeout,
+            timeoutError: PipelineError.timeout(seconds: Int(self.config.timeout))
+        ) {
             try await self.executeStages(input)
         }
     }
@@ -220,35 +223,6 @@ public struct TransformationPipeline: Sendable {
         }
 
         return PipelineResult(output: current, stageResults: stageResults)
-    }
-
-    /// Execute operation with timeout.
-    private func withTimeout<T: Sendable>(
-        _ duration: TimeInterval,
-        operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            // Add the main operation
-            group.addTask {
-                try await operation()
-            }
-
-            // Add timeout task
-            group.addTask {
-                try await Task.sleep(for: .seconds(duration))
-                throw PipelineError.timeout(seconds: Int(duration))
-            }
-
-            // Return first result (operation or timeout)
-            guard let result = try await group.next() else {
-                throw PipelineError.cancelled
-            }
-
-            // Cancel remaining tasks (the other will throw or be cancelled)
-            group.cancelAll()
-
-            return result
-        }
     }
 }
 

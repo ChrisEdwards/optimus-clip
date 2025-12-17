@@ -52,7 +52,10 @@ public struct LLMTransformation: Transformation {
 
         let response: LLMResponse
         do {
-            response = try await self.withTimeout(self.timeoutSeconds) {
+            response = try await OptimusClipCore.withTimeout(
+                self.timeoutSeconds,
+                timeoutError: LLMProviderError.timeout
+            ) {
                 try await self.providerClient.transform(request)
             }
         } catch let error as LLMProviderError {
@@ -95,29 +98,6 @@ public struct LLMTransformation: Transformation {
             TransformationError.networkError(message)
         case let .server(message), let .invalidResponse(message):
             TransformationError.processingError(message)
-        }
-    }
-
-    private func withTimeout<T: Sendable>(
-        _ duration: TimeInterval,
-        operation: @escaping @Sendable () async throws -> T
-    ) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask {
-                try await operation()
-            }
-
-            group.addTask {
-                try await Task.sleep(for: .seconds(duration))
-                throw LLMProviderError.timeout
-            }
-
-            guard let result = try await group.next() else {
-                throw LLMProviderError.timeout
-            }
-
-            group.cancelAll()
-            return result
         }
     }
 }
