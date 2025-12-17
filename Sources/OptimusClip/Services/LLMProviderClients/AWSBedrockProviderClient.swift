@@ -155,10 +155,13 @@ private enum BedrockCredentials: Sendable {
     case sigV4(accessKey: String, secretKey: String)
     case bearer(token: String)
 
+    /// Returns true only for credential types that are fully implemented.
+    /// SigV4 signing is not yet implemented, so sigV4 credentials are not considered valid.
     var isValid: Bool {
         switch self {
-        case let .sigV4(accessKey, secretKey):
-            !accessKey.isEmpty && !secretKey.isEmpty
+        case .sigV4:
+            // SigV4 signing is not implemented - users must use bearer token authentication
+            false
         case let .bearer(token):
             !token.isEmpty
         }

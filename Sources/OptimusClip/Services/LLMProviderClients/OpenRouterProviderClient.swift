@@ -6,9 +6,13 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
     public let provider: LLMProviderKind = .openRouter
 
     private let apiKey: String
+    private let referer: String
+    private let appTitle: String
 
-    public init(apiKey: String) {
+    public init(apiKey: String, referer: String? = nil, appTitle: String? = nil) {
         self.apiKey = apiKey
+        self.referer = Self.resolvedReferer(from: referer)
+        self.appTitle = Self.resolvedTitle(from: appTitle)
     }
 
     public func isConfigured() -> Bool {
@@ -48,8 +52,8 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("Bearer \(self.apiKey)", forHTTPHeaderField: "Authorization")
-        urlRequest.setValue("OptimusClip", forHTTPHeaderField: "HTTP-Referer")
-        urlRequest.setValue("OptimusClip", forHTTPHeaderField: "X-Title")
+        urlRequest.setValue(self.referer, forHTTPHeaderField: "HTTP-Referer")
+        urlRequest.setValue(self.appTitle, forHTTPHeaderField: "X-Title")
         urlRequest.timeoutInterval = request.timeout
 
         let body = OpenRouterRequest(
@@ -65,6 +69,54 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         return urlRequest
     }
 
+    private static func resolvedReferer(from override: String?) -> String {
+        if let normalized = normalizedURLString(override) {
+            return normalized
+        }
+        if let infoPlistValue = Bundle.main.object(forInfoDictionaryKey: "OpenRouterRefererURL") as? String,
+           let normalized = Self.normalizedURLString(infoPlistValue) {
+            return normalized
+        }
+        return "https://optimusclip.app"
+    }
+
+    private static func normalizedURLString(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty,
+              let url = URL(string: trimmed),
+              let scheme = url.scheme,
+              ["http", "https"].contains(scheme.lowercased()) else {
+            return nil
+        }
+        return url.absoluteString
+    }
+
+    private static func resolvedTitle(from override: String?) -> String {
+        if let normalized = normalizedTitle(override) {
+            return normalized
+        }
+        if let infoPlistValue = Bundle.main.object(forInfoDictionaryKey: "OpenRouterAppTitle") as? String,
+           let normalized = Self.normalizedTitle(infoPlistValue) {
+            return normalized
+        }
+        if let displayName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String,
+           let normalized = Self.normalizedTitle(displayName) {
+            return normalized
+        }
+        if let bundleName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String,
+           let normalized = Self.normalizedTitle(bundleName) {
+            return normalized
+        }
+        return "Optimus Clip"
+    }
+
+    private static func normalizedTitle(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
     private func validateResponse(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMProviderError.invalidResponse("Invalid response type")
@@ -76,7 +128,7 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         case 401:
             throw LLMProviderError.authenticationError
         case 429:
-            throw LLMProviderError.rateLimited(retryAfter: nil)
+            throw LLMProviderError.rateLimited(retryAfter: self.parseRetryAfter(httpResponse))
         case 404:
             throw LLMProviderError.modelNotFound
         case 500 ... 599:
@@ -84,6 +136,13 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         default:
             throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
         }
+    }
+
+    private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
+        guard let retryValue = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+        return TimeInterval(retryValue)
     }
 
     private func buildLLMResponse(_ response: OpenRouterResponse, startTime: Date) -> LLMResponse {

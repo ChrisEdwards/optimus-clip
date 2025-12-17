@@ -143,11 +143,16 @@ final class HotkeyManager: ObservableObject {
         // Store transformation for lookup when hotkey fires
         self.transformationsByShortcut[shortcutName] = transformation
 
-        // Register handler with KeyboardShortcuts
+        // Register handler with KeyboardShortcuts. Look up the latest
+        // transformation configuration at trigger time so edits in
+        // Settings apply immediately without restarting the app.
         KeyboardShortcuts.onKeyUp(for: shortcutName) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                await self.triggerTransformation(transformation)
+                guard let latest = self.transformationsByShortcut[shortcutName] else {
+                    return
+                }
+                await self.triggerTransformation(latest)
             }
         }
 
@@ -224,6 +229,16 @@ final class HotkeyManager: ObservableObject {
             self.disableShortcut(shortcutName)
             self.globallySuspendedShortcuts.remove(shortcutName)
         }
+    }
+
+    /// Updates the cached configuration for an already registered transformation.
+    ///
+    /// Call this after persisting edits made in the Settings UI so future hotkey
+    /// invocations use the latest provider/model/prompt values.
+    ///
+    /// - Parameter transformation: Updated transformation pulled from persistence/UI.
+    func updateTransformation(_ transformation: TransformationConfig) {
+        self.transformationsByShortcut[transformation.shortcutName] = transformation
     }
 
     // MARK: - Global Listening Control

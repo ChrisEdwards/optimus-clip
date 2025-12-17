@@ -100,6 +100,9 @@ struct TransformationsTabView: View {
                 current[index] = newValue
                 self.transformations = current
 
+                // Keep HotkeyManager cache in sync so hotkeys use the latest config
+                self.hotkeyManager.updateTransformation(newValue)
+
                 // Update HotkeyManager when enabled state changes
                 if oldValue.isEnabled != newValue.isEnabled {
                     self.hotkeyManager.setEnabled(newValue.isEnabled, for: newValue)

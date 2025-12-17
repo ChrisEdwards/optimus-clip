@@ -155,7 +155,7 @@ public enum ClipboardSafety {
     // MARK: - User Feedback
 
     /// Mapping of UTI types to human-readable descriptions.
-    private nonisolated(unsafe) static let typeDescriptions: [String: String] = {
+    private nonisolated static let typeDescriptions: [String: String] = {
         var map: [String: String] = [
             // Images
             "public.png": "an image (PNG)",

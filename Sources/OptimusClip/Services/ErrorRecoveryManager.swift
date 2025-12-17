@@ -137,7 +137,7 @@ public final class ErrorRecoveryManager: ObservableObject {
             .permissionRequired
         case .clipboardEmpty, .noTextContent, .selfWriteDetected:
             .contentIssue
-        case let .binaryContent(type: _):
+        case .binaryContent:
             .contentIssue
         case let .transformationFailed(underlying):
             self.categorizeTransformationError(underlying)
