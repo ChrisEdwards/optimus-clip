@@ -54,7 +54,7 @@ struct TransformationsTabView: View {
                 )
                 .frame(minWidth: 250)
             } else {
-                TransformationEmptyStateView()
+                TransformationEmptyStateView(onCreateTransformation: self.addTransformation)
                     .frame(minWidth: 250)
             }
         }
