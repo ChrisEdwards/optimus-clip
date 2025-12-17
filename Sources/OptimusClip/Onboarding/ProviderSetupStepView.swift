@@ -239,6 +239,25 @@ struct ProviderSetupStepView: View {
                 }
                 .font(.subheadline)
                 .multilineTextAlignment(.center)
+
+            case let .savedNotValidated(message):
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(.orange)
+                        Text(message)
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline)
+
+                    Button {
+                        Task { await self.validateCredentials() }
+                    } label: {
+                        Label("Validate", systemImage: "checkmark.circle")
+                            .frame(minWidth: 120)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
         .frame(maxWidth: 400)
@@ -361,11 +380,11 @@ struct ProviderSetupStepView: View {
     private func applyLoadedValidationStateForSelection() {
         switch self.selectedProvider {
         case .openAI where !self.openAIKey.isEmpty:
-            self.validationState = .success(message: "Using saved OpenAI key")
+            self.validationState = .savedNotValidated(message: "Saved key found - tap Validate to confirm")
         case .anthropic where !self.anthropicKey.isEmpty:
-            self.validationState = .success(message: "Using saved Anthropic key")
+            self.validationState = .savedNotValidated(message: "Saved key found - tap Validate to confirm")
         case .ollama where self.hasOllamaConfig:
-            self.validationState = .success(message: "Using saved Ollama host")
+            self.validationState = .savedNotValidated(message: "Saved config found - tap Validate to confirm")
         default:
             self.validationState = .idle
         }
