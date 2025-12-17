@@ -78,8 +78,8 @@ enum SettingsKey {
 
     // MARK: - Transformations
 
-    /// JSON-encoded array of TransformationConfig objects.
-    static let transformations = "transformations"
+    /// JSON-encoded array of TransformationConfig objects (Data blob).
+    static let transformationsData = "transformations_data"
 
     // MARK: - Onboarding
 

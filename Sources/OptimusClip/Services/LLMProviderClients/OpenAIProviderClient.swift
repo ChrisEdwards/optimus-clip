@@ -74,7 +74,7 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         case 401:
             throw LLMProviderError.authenticationError
         case 429:
-            throw LLMProviderError.rateLimited(retryAfter: nil)
+            throw LLMProviderError.rateLimited(retryAfter: self.parseRetryAfter(httpResponse))
         case 404:
             throw LLMProviderError.modelNotFound
         case 500 ... 599:
@@ -82,6 +82,13 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         default:
             throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
         }
+    }
+
+    private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
+        guard let retryValue = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+        return TimeInterval(retryValue)
     }
 
     private func buildLLMResponse(_ chatResponse: OpenAIChatResponse, startTime: Date) -> LLMResponse {

@@ -388,10 +388,6 @@ struct ProviderSetupStepView: View {
 
 // MARK: - Supporting Types
 
-/// Providers available in the onboarding flow.
-///
-/// This is a subset of all providers - only the most common ones
-/// to keep the onboarding simple.
 private enum OnboardingProvider: String, CaseIterable, Identifiable {
     case openAI
     case anthropic
