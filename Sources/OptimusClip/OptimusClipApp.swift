@@ -172,6 +172,7 @@ private struct MenuBarMenuContent: View {
     @Environment(\.openSettings) private var openSettings
 
     /// Stored transformations (JSON-encoded in UserDefaults).
+    /// Note: Key must match SettingsKey.transformationsData ("transformations_data").
     @AppStorage("transformations_data") private var transformationsData: Data = .init()
 
     /// Global hotkey manager for toggle binding.
@@ -229,6 +230,9 @@ private struct MenuBarMenuContent: View {
             openSettings: self.openSettings
         )
 
+        // Recent transformations submenu
+        RecentTransformationsSubmenu(openSettings: self.openSettings)
+
         Divider()
 
         Toggle(self.hotkeyToggleLabel, isOn: self.hotkeyToggleBinding)
@@ -248,6 +252,94 @@ private struct MenuBarMenuContent: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+// MARK: - Recent Transformations Submenu
+
+/// Submenu showing the most recent transformation executions with relative timestamps.
+@MainActor
+private struct RecentTransformationsSubmenu: View {
+    let openSettings: OpenSettingsAction
+    @Environment(\.historyStore) private var historyStore
+    @State private var recentRecords: [HistoryRecord] = []
+
+    var body: some View {
+        Menu("Recent") {
+            if self.recentRecords.isEmpty {
+                Text("No recent transformations")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(self.recentRecords) { record in
+                    RecentTransformationItem(record: record)
+                }
+            }
+
+            Divider()
+
+            Button("View Full History...") {
+                NSApp.activate(ignoringOtherApps: true)
+                self.openSettings()
+            }
+        }
+        .task {
+            await self.loadRecentRecords()
+        }
+    }
+
+    private func loadRecentRecords() async {
+        do {
+            self.recentRecords = try await self.historyStore.fetchRecent(limit: 5)
+        } catch {
+            self.recentRecords = []
+        }
+    }
+}
+
+// MARK: - Recent Transformation Item
+
+/// Individual menu item showing a recent transformation with relative timestamp.
+@MainActor
+private struct RecentTransformationItem: View {
+    let record: HistoryRecord
+
+    /// Formats a date as relative time (e.g., "2m ago", "1h ago", "3d ago").
+    private var relativeTimestamp: String {
+        let now = Date()
+        let seconds = Int(now.timeIntervalSince(self.record.timestamp))
+
+        if seconds < 60 {
+            return "just now"
+        } else if seconds < 3600 {
+            let minutes = seconds / 60
+            return "\(minutes)m ago"
+        } else if seconds < 86400 {
+            let hours = seconds / 3600
+            return "\(hours)h ago"
+        } else {
+            let days = seconds / 86400
+            return "\(days)d ago"
+        }
+    }
+
+    /// Status indicator for the transformation result.
+    private var statusIcon: String {
+        self.record.wasSuccessful ? "checkmark.circle" : "xmark.circle"
+    }
+
+    private var statusColor: Color {
+        self.record.wasSuccessful ? .green : .red
+    }
+
+    var body: some View {
+        HStack {
+            Image(systemName: self.statusIcon)
+                .foregroundStyle(self.statusColor)
+            Text(self.record.transformationName)
+            Spacer()
+            Text(self.relativeTimestamp)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -309,53 +401,10 @@ private struct TransformationMenuItem: View {
         }
     }
 
-    /// Triggers the transformation via HotkeyManager.
+    /// Triggers the transformation via HotkeyManager's centralized method.
     @MainActor
     private func triggerTransformation() async {
-        let hotkeyManager = HotkeyManager.shared
-        let flowCoordinator = hotkeyManager.flowCoordinator
-
-        // Prevent duplicate execution
-        guard !flowCoordinator.isProcessing else {
-            NSSound.beep()
-            return
-        }
-
-        // Configure pipeline based on transformation type
-        switch self.transformation.type {
-        case .algorithmic:
-            flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
-
-        case .llm:
-            // LLM transformations require provider configuration
-            guard let pipeline = self.createLLMPipeline(for: self.transformation) else {
-                NSSound.beep()
-                return
-            }
-            flowCoordinator.pipeline = pipeline
-        }
-
-        // Execute the transformation flow
-        _ = await flowCoordinator.handleHotkeyTrigger()
-    }
-
-    /// Creates an LLM transformation pipeline from a transformation config.
-    @MainActor
-    private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
-        let factory = LLMProviderClientFactory()
-        guard let resolved = try? factory.client(for: transformation) else {
-            return nil
-        }
-
-        let llmTransformation = LLMTransformation(
-            id: "llm-\(transformation.id.uuidString)",
-            displayName: transformation.name,
-            providerClient: resolved.client,
-            model: resolved.resolution.model,
-            systemPrompt: transformation.systemPrompt
-        )
-
-        return TransformationPipeline.single(llmTransformation, config: .llm)
+        await HotkeyManager.shared.triggerTransformation(self.transformation)
     }
 }
 
