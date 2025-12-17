@@ -20,6 +20,10 @@ struct OptimusClipApp: App {
 
     /// Observable state manager for menu bar icon appearance.
     @StateObject private var menuBarState = MenuBarStateManager()
+
+    /// Observable state manager for onboarding flow.
+    @StateObject private var onboardingState = OnboardingStateManager()
+
     private let historyContainer: ModelContainer
     private let historyStore: HistoryStore
 
@@ -59,6 +63,15 @@ struct OptimusClipApp: App {
         // Settings window scene (native macOS settings pattern)
         Settings {
             SettingsView()
+                .sheet(isPresented: self.$onboardingState.isPresented) {
+                    OnboardingFlowView()
+                        .environmentObject(self.onboardingState)
+                }
+                .onAppear {
+                    if self.onboardingState.shouldShowOnboarding {
+                        self.onboardingState.show()
+                    }
+                }
         }
         .modelContainer(self.historyContainer)
         .environment(\.historyStore, self.historyStore)

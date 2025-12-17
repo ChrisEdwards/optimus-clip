@@ -1,5 +1,3 @@
-// swiftlint:disable file_length
-// TODO: Extract credential input views to reduce file size (oc-3bc)
 import OSLog
 import SwiftUI
 
