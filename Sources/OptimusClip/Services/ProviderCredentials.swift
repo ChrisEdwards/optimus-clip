@@ -64,7 +64,8 @@ struct ProviderCredentialsResolver {
     }
 
     private func awsCredentials() throws -> LLMCredentials? {
-        let region = self.userDefaults.string(forKey: SettingsKey.awsRegion) ?? DefaultSettings.awsRegion
+        let region = self.cleanedSetting(self.userDefaults.string(forKey: SettingsKey.awsRegion))
+            ?? DefaultSettings.awsRegion
 
         if let bearer = try self.keyStore.loadAWSBearerToken(), bearer.isEmpty == false {
             return .awsBedrockBearerToken(bearerToken: bearer, region: region)
@@ -82,17 +83,34 @@ struct ProviderCredentialsResolver {
     }
 
     private func ollamaEndpointURL() -> URL? {
-        let host = (self.userDefaults.string(forKey: SettingsKey.ollamaHost) ?? DefaultSettings.ollamaHost)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let port = (self.userDefaults.string(forKey: SettingsKey.ollamaPort) ?? DefaultSettings.ollamaPort)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let host = self.cleanedSetting(self.userDefaults.string(forKey: SettingsKey.ollamaHost))
+            ?? DefaultSettings.ollamaHost
+        let port = self.cleanedSetting(self.userDefaults.string(forKey: SettingsKey.ollamaPort))
 
         let base = host.hasPrefix("http") ? host : "http://\(host)"
         if let components = URLComponents(string: base), components.port != nil {
             return components.url
         }
 
-        let combined = port.isEmpty ? base : "\(base):\(port)"
+        let combined: String = if let port, Self.isValidPort(port) {
+            "\(base):\(port)"
+        } else {
+            base
+        }
         return URL(string: combined)
+    }
+
+    private func cleanedSetting(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private static func isValidPort(_ value: String) -> Bool {
+        guard let portNumber = Int(value), (1 ... 65535).contains(portNumber) else {
+            return false
+        }
+        return true
     }
 }

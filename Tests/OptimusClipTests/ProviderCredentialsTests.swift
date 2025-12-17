@@ -111,6 +111,47 @@ struct ProviderCredentialsResolverTests {
         }
     }
 
+    @Test("Falls back to default AWS region when setting is blank")
+    func awsRegionFallbackForBlankSetting() throws {
+        let context = self.makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+
+        context.defaults.set("   ", forKey: SettingsKey.awsRegion)
+        try context.store.saveAWSAccessKey("ACCESS")
+        try context.store.saveAWSSecretKey("SECRET")
+
+        let resolver = ProviderCredentialsResolver(keyStore: context.store, userDefaults: context.defaults)
+        let credentials = try resolver.credentials(for: .awsBedrock)
+
+        switch credentials {
+        case let .awsBedrock(accessKey, secretKey, region):
+            #expect(accessKey == "ACCESS")
+            #expect(secretKey == "SECRET")
+            #expect(region == DefaultSettings.awsRegion)
+        default:
+            Issue.record("Expected AWS key credentials with fallback region")
+        }
+    }
+
+    @Test("Ignores invalid Ollama port values")
+    func ignoresInvalidOllamaPort() throws {
+        let context = self.makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+
+        context.defaults.set("http://ollama.local", forKey: SettingsKey.ollamaHost)
+        context.defaults.set("not-a-port", forKey: SettingsKey.ollamaPort)
+
+        let resolver = ProviderCredentialsResolver(keyStore: context.store, userDefaults: context.defaults)
+        let credentials = try resolver.credentials(for: .ollama)
+
+        switch credentials {
+        case let .ollama(endpoint):
+            #expect(endpoint.absoluteString == "http://ollama.local")
+        default:
+            Issue.record("Expected Ollama endpoint even when port is invalid")
+        }
+    }
+
     private func makeContext() -> TestContext {
         let keychain = MockKeychainService()
         let suiteName = "ProviderCredentialsResolverTests.\(UUID().uuidString)"
