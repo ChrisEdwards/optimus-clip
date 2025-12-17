@@ -3,8 +3,10 @@ import Foundation
 // MARK: - LLM Provider Types
 
 /// Supported LLM providers for transformations.
+/// UI-facing enum for provider selection.
+/// Note: Raw values must match `LLMProviderKind` from OptimusClipCore for consistency.
 enum LLMProvider: String, CaseIterable, Identifiable {
-    case openai
+    case openAI
     case anthropic
     case openRouter
     case ollama
@@ -15,7 +17,7 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     /// Display name for the provider.
     var displayName: String {
         switch self {
-        case .openai: "OpenAI"
+        case .openAI: "OpenAI"
         case .anthropic: "Anthropic"
         case .openRouter: "OpenRouter"
         case .ollama: "Ollama"
@@ -26,7 +28,7 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     /// Help URL for getting API credentials.
     var helpURL: URL? {
         switch self {
-        case .openai:
+        case .openAI:
             URL(string: "https://platform.openai.com/api-keys")
         case .anthropic:
             URL(string: "https://console.anthropic.com/settings/keys")

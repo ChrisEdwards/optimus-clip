@@ -32,7 +32,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
 
         let startTime = Date()
         var urlRequest = try self.buildRequest(request)
-        self.applyAuthentication(to: &urlRequest)
+        try self.applyAuthentication(to: &urlRequest)
 
         let data: Data
         let response: URLResponse
@@ -78,20 +78,14 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         return URL(string: "https://\(host)\(path)")
     }
 
-    private func applyAuthentication(to request: inout URLRequest) {
+    private func applyAuthentication(to request: inout URLRequest) throws {
         switch self.credentials {
         case let .bearer(token):
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        case let .sigV4(accessKey, _):
-            // Basic SigV4 headers (simplified - production needs full signing)
-            let date = ISO8601DateFormatter().string(from: Date())
-            let shortDate = String(date.prefix(8))
-            request.setValue(date, forHTTPHeaderField: "X-Amz-Date")
-            let credential = "\(accessKey)/\(shortDate)/\(self.region)/bedrock/aws4_request"
-            request.setValue(
-                "AWS4-HMAC-SHA256 Credential=\(credential), SignedHeaders=host;x-amz-date, Signature=placeholder",
-                forHTTPHeaderField: "Authorization"
-            )
+        case .sigV4:
+            // SigV4 signing requires complex HMAC-SHA256 computation that is not yet implemented.
+            // Users should use bearer token authentication via AWS IAM Identity Center instead.
+            throw LLMProviderError.authenticationError
         }
     }
 
@@ -106,7 +100,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         case 401, 403:
             throw LLMProviderError.authenticationError
         case 429:
-            throw LLMProviderError.rateLimited(retryAfter: nil)
+            throw LLMProviderError.rateLimited(retryAfter: self.parseRetryAfter(httpResponse))
         case 404:
             throw LLMProviderError.modelNotFound
         case 500 ... 599:
@@ -114,6 +108,13 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         default:
             throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
         }
+    }
+
+    private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
+        guard let retryValue = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+        return TimeInterval(retryValue)
     }
 
     private func buildLLMResponse(

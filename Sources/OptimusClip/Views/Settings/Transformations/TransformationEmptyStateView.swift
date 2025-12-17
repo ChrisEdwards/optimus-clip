@@ -7,28 +7,45 @@ import SwiftUI
 /// Provides visual indication and instructions for the user
 /// to select or create a transformation.
 struct TransformationEmptyStateView: View {
+    let onCreateTransformation: () -> Void
+
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Image(systemName: "wand.and.stars")
-                .font(.system(size: 48))
-                .foregroundColor(.secondary)
+                .font(.system(size: 56))
+                .foregroundStyle(.secondary)
 
-            Text("No Transformation Selected")
+            Text("Create Your First Transformation")
                 .font(.title2)
-                .fontWeight(.medium)
+                .fontWeight(.semibold)
 
-            Text("Select a transformation from the sidebar\nor click + to create a new one.")
+            Text("Transformations modify clipboard content when you press a keyboard shortcut.\n" +
+                "Clean up code, fix grammar, or reformat text instantly.")
                 .font(.body)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            Button {
+                self.onCreateTransformation()
+            } label: {
+                Label("Create Transformation", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+
+            Text("Or select an existing one from the sidebar.")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 12)
     }
 }
 
 // MARK: - Preview
 
 #Preview {
-    TransformationEmptyStateView()
+    TransformationEmptyStateView(onCreateTransformation: {})
         .frame(width: 300, height: 300)
 }

@@ -3,12 +3,13 @@ import Foundation
 // MARK: - Public Types
 
 /// Supported LLM model providers.
+/// Note: Raw values match `LLMProviderKind` from LLMProvider.swift for consistency.
 public enum ModelProvider: String, Codable, CaseIterable, Sendable {
-    case openAI = "openai"
+    case openAI
     case anthropic
-    case openRouter = "openrouter"
+    case openRouter
     case ollama
-    case awsBedrock = "awsbedrock"
+    case awsBedrock
 }
 
 /// Metadata describing an individual LLM model.

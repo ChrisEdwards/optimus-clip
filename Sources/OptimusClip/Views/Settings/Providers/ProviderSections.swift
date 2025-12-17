@@ -132,7 +132,7 @@ struct OpenAIProviderSection: View {
 
             ValidationStatusView(state: self.validationState)
 
-            ProviderHelpLink(provider: .openai)
+            ProviderHelpLink(provider: .openAI)
         }
     }
 
