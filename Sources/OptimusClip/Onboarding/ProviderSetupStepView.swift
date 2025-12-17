@@ -1,18 +1,14 @@
+// swiftlint:disable file_length
+// TODO: Extract credential input views to reduce file size (oc-3bc)
+import OSLog
 import SwiftUI
 
-/// Provider setup step of the onboarding flow.
+private let logger = Logger(subsystem: "com.optimusclip", category: "Onboarding")
+
+/// Optional provider setup step for onboarding.
 ///
-/// This optional step guides users through configuring one LLM provider
-/// for AI-powered transformations. Users can:
-/// - Choose from OpenAI, Anthropic, or Ollama
-/// - Enter and validate their credentials
-/// - Skip if they only want algorithmic transformations
-///
-/// ## Design Principles
-/// - Provider setup is optional - skip is prominent
-/// - Only shows 3 most common providers for simplicity
-/// - Validates credentials before allowing Continue
-/// - Reuses existing validator logic from ProvidersTabView
+/// Supports OpenAI, Anthropic, or Ollama with validate/skip paths and saves
+/// credentials for later use in Settings.
 struct ProviderSetupStepView: View {
     /// Action to perform when user taps Continue (after validation).
     let onContinue: () -> Void
@@ -36,6 +32,9 @@ struct ProviderSetupStepView: View {
 
     /// Ollama port input.
     @State private var ollamaPort: String = "11434"
+
+    /// Ensures stored credentials are loaded once per lifecycle.
+    @State private var didLoadStoredCredentials = false
 
     /// Current validation state.
     @State private var validationState: ValidationState = .idle
@@ -64,6 +63,10 @@ struct ProviderSetupStepView: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            self.loadSavedCredentialsIfNeeded()
+            self.applyLoadedValidationStateForSelection()
+        }
     }
 
     // MARK: - Header Section
@@ -106,7 +109,7 @@ struct ProviderSetupStepView: View {
                         isSelected: self.selectedProvider == provider,
                         action: {
                             self.selectedProvider = provider
-                            self.validationState = .idle
+                            self.applyLoadedValidationStateForSelection()
                         }
                     )
                 }
@@ -280,7 +283,6 @@ struct ProviderSetupStepView: View {
 
     // MARK: - Computed Properties
 
-    /// Whether the current provider has input entered.
     private var hasInput: Bool {
         switch self.selectedProvider {
         case .openAI:
@@ -288,16 +290,19 @@ struct ProviderSetupStepView: View {
         case .anthropic:
             !self.anthropicKey.isEmpty
         case .ollama:
-            !self.ollamaHost.isEmpty && !self.ollamaPort.isEmpty
+            self.hasOllamaConfig
         }
     }
 
-    /// Whether credentials have been validated successfully.
     private var isValidated: Bool {
         if case .success = self.validationState {
             return true
         }
         return false
+    }
+
+    private var hasOllamaConfig: Bool {
+        !self.ollamaHost.isEmpty && !self.ollamaPort.isEmpty
     }
 
     // MARK: - Actions
@@ -336,7 +341,47 @@ struct ProviderSetupStepView: View {
             }
         } catch {
             // Log error but don't block - user can re-enter in Settings
-            print("Failed to save credentials: \(error)")
+            logger.error("Failed to save credentials: \(error.localizedDescription)")
+        }
+    }
+
+    private func loadSavedCredentialsIfNeeded() {
+        guard !self.didLoadStoredCredentials else { return }
+        self.didLoadStoredCredentials = true
+
+        do {
+            if let savedOpenAIKey = try self.apiKeyStore.loadOpenAIKey(), !savedOpenAIKey.isEmpty {
+                self.openAIKey = savedOpenAIKey
+            }
+
+            if let savedAnthropicKey = try self.apiKeyStore.loadAnthropicKey(), !savedAnthropicKey.isEmpty {
+                self.anthropicKey = savedAnthropicKey
+            }
+        } catch {
+            self.validationState = .failure(
+                error: "Couldn't load saved keys: \(error.localizedDescription)"
+            )
+        }
+
+        let defaults = UserDefaults.standard
+        if let savedHost = defaults.string(forKey: SettingsKey.ollamaHost), !savedHost.isEmpty {
+            self.ollamaHost = savedHost
+        }
+        if let savedPort = defaults.string(forKey: SettingsKey.ollamaPort), !savedPort.isEmpty {
+            self.ollamaPort = savedPort
+        }
+    }
+
+    private func applyLoadedValidationStateForSelection() {
+        switch self.selectedProvider {
+        case .openAI where !self.openAIKey.isEmpty:
+            self.validationState = .success(message: "Using saved OpenAI key")
+        case .anthropic where !self.anthropicKey.isEmpty:
+            self.validationState = .success(message: "Using saved Anthropic key")
+        case .ollama where self.hasOllamaConfig:
+            self.validationState = .success(message: "Using saved Ollama host")
+        default:
+            self.validationState = .idle
         }
     }
 }

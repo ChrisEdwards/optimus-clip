@@ -135,7 +135,7 @@ public final class ErrorRecoveryManager: ObservableObject {
         switch error {
         case .accessibilityPermissionRequired:
             .permissionRequired
-        case .clipboardEmpty, .noTextContent, .selfWriteDetected:
+        case .clipboardEmpty, .noTextContent, .selfWriteDetected, .inputTooLarge:
             .contentIssue
         case .binaryContent:
             .contentIssue

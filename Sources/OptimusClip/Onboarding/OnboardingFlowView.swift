@@ -7,7 +7,7 @@ import SwiftUI
 /// - Welcome
 /// - Accessibility permissions
 /// - Optional provider setup
-/// - First transformation walkthrough (placeholder)
+/// - First transformation walkthrough
 /// - Completion
 struct OnboardingFlowView: View {
     @EnvironmentObject private var onboardingState: OnboardingStateManager
@@ -56,7 +56,7 @@ struct OnboardingFlowView: View {
             )
 
         case .firstTransformation:
-            FirstTransformationPlaceholderView(
+            TryTransformationStepView(
                 onContinue: { self.onboardingState.advance() },
                 onSkip: { self.onboardingState.advance() }
             )
@@ -118,51 +118,6 @@ private struct WelcomeStepView: View {
                 } label: {
                     Text("Skip for Now")
                         .frame(minWidth: 120)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-// MARK: - First Transformation Placeholder
-
-/// Placeholder step for the first transformation walkthrough (oc-nbd.2.5).
-/// Provides a simple CTA until the dedicated guided experience is built.
-private struct FirstTransformationPlaceholderView: View {
-    let onContinue: () -> Void
-    let onSkip: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Try Your First Transformation")
-                .font(.title3.weight(.semibold))
-
-            Text(
-                "A guided walkthrough will appear here to help you run your first transformation. "
-                    + "For now, continue to finish setup or skip to use the app."
-            )
-            .foregroundStyle(.secondary)
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                Button {
-                    self.onContinue()
-                } label: {
-                    Text("Continue")
-                        .frame(minWidth: 140)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-
-                Button {
-                    self.onSkip()
-                } label: {
-                    Text("Skip")
-                        .frame(minWidth: 100)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)

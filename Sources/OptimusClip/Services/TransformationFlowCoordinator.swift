@@ -249,6 +249,9 @@ public final class TransformationFlowCoordinator: ObservableObject {
         }
     }
 
+    /// Maximum input size in bytes (100KB). Prevents excessive API costs and memory usage.
+    private static let maxInputBytes = 100_000
+
     /// Reads text from clipboard after checking for binary content.
     private func readClipboardText() throws -> String {
         let result = ClipboardSafety.readText()
@@ -258,6 +261,16 @@ public final class TransformationFlowCoordinator: ObservableObject {
             guard !text.isEmpty else {
                 throw TransformationFlowError.clipboardEmpty
             }
+
+            // Validate input size to prevent excessive API costs and resource usage
+            let byteCount = text.utf8.count
+            guard byteCount <= Self.maxInputBytes else {
+                throw TransformationFlowError.inputTooLarge(
+                    byteCount: byteCount,
+                    maxBytes: Self.maxInputBytes
+                )
+            }
+
             return text
 
         case let .failure(error):

@@ -19,8 +19,8 @@ public protocol ClipboardMonitorDelegate: AnyObject {
 /// uses `DispatchSourceTimer` for power-efficient scheduling.
 ///
 /// ## Polling Strategy
-/// - **Interval**: 150ms (7 checks per second) balances responsiveness with efficiency
-/// - **Leeway**: 50ms allows the system to coalesce timer events for power savings
+/// - **Interval**: 300ms (3.3 checks per second) balances responsiveness with battery efficiency
+/// - **Leeway**: 100ms allows the system to coalesce timer events for power savings
 /// - **Grace Delay**: 80ms wait after detecting change, allowing "promised" data to resolve
 ///
 /// ## Text Reading
@@ -43,12 +43,12 @@ public final class ClipboardMonitor {
     // MARK: - Configuration
 
     /// Polling interval between clipboard checks.
-    /// 150ms provides responsive detection without excessive CPU usage.
-    private let pollInterval: TimeInterval = 0.15
+    /// 300ms balances responsiveness with battery efficiency (3.3 checks/second).
+    private let pollInterval: TimeInterval = 0.30
 
     /// Timer leeway for power efficiency.
     /// Allows system to coalesce events, reducing battery impact on laptops.
-    private let leeway: DispatchTimeInterval = .milliseconds(50)
+    private let leeway: DispatchTimeInterval = .milliseconds(100)
 
     /// Grace delay after detecting change before reading content.
     /// Some apps use "promised" data (lazy loading) that isn't immediately available.
@@ -73,6 +73,10 @@ public final class ClipboardMonitor {
     /// When suspended, the timer is paused but not invalidated.
     public private(set) var isSuspended: Bool = false
 
+    /// Pending grace delay task. Cancelled when a new clipboard change is detected
+    /// to prevent multiple reads from queuing up during rapid clipboard changes.
+    private var pendingGraceTask: Task<Void, Never>?
+
     // MARK: - Initialization
 
     /// Creates a new clipboard monitor.
@@ -85,8 +89,10 @@ public final class ClipboardMonitor {
     }
 
     deinit {
-        // Ensure timer is properly cleaned up.
+        // Ensure timer and pending tasks are properly cleaned up.
         // Note: This is MainActor-isolated, so cleanup is safe.
+        self.pendingGraceTask?.cancel()
+        self.pendingGraceTask = nil
         self.timer?.cancel()
         self.timer = nil
     }
@@ -127,11 +133,13 @@ public final class ClipboardMonitor {
 
     /// Stops monitoring the clipboard.
     ///
-    /// Cancels and releases the underlying timer. Safe to call multiple times;
-    /// subsequent calls are ignored if not monitoring.
+    /// Cancels and releases the underlying timer and pending tasks. Safe to call
+    /// multiple times; subsequent calls are ignored if not monitoring.
     public func stopMonitoring() {
         guard self.isMonitoring else { return }
 
+        self.pendingGraceTask?.cancel()
+        self.pendingGraceTask = nil
         self.timer?.cancel()
         self.timer = nil
         self.isMonitoring = false
@@ -170,6 +178,7 @@ public final class ClipboardMonitor {
     ///
     /// Called by the timer on each poll interval. If changeCount differs from
     /// the last observed value, schedules a delayed read to handle promised data.
+    /// Cancels any pending read to prevent queue buildup during rapid changes.
     private func checkClipboard() {
         let currentCount = NSPasteboard.general.changeCount
 
@@ -177,10 +186,16 @@ public final class ClipboardMonitor {
 
         self.lastChangeCount = currentCount
 
+        // Cancel any pending grace delay task to prevent queue buildup
+        self.pendingGraceTask?.cancel()
+
         // Wait grace period for promised data to resolve before reading
-        DispatchQueue.main.asyncAfter(deadline: .now() + self.graceDelay) { [weak self] in
-            MainActor.assumeIsolated {
+        self.pendingGraceTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(self?.graceDelay ?? 0.08))
                 self?.readClipboardContent()
+            } catch {
+                // Task was cancelled - this is expected during rapid clipboard changes
             }
         }
     }

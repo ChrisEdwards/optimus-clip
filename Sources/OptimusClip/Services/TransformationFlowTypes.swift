@@ -27,6 +27,9 @@ public enum TransformationFlowError: Error, Sendable {
     /// No text content could be read from clipboard.
     case noTextContent
 
+    /// Clipboard content exceeds maximum allowed size.
+    case inputTooLarge(byteCount: Int, maxBytes: Int)
+
     /// Transformation failed.
     case transformationFailed(Error)
 
@@ -52,6 +55,8 @@ public enum TransformationFlowError: Error, Sendable {
             "Content was already transformed by Optimus Clip"
         case .noTextContent:
             "No text content found on clipboard"
+        case let .inputTooLarge(byteCount, maxBytes):
+            "Input too large (\(byteCount / 1024)KB). Maximum is \(maxBytes / 1024)KB."
         case let .transformationFailed(error):
             "Transformation failed: \(error.localizedDescription)"
         case let .clipboardWriteFailed(error):
@@ -76,6 +81,8 @@ public enum TransformationFlowError: Error, Sendable {
             return "Already transformed"
         case .noTextContent:
             return "No text found"
+        case .inputTooLarge:
+            return "Input too large"
         case let .transformationFailed(underlying):
             // Try to get specific error message from known error types
             if let txError = underlying as? TransformationError {

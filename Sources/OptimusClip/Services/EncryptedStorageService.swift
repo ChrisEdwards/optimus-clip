@@ -9,6 +9,12 @@ private let migrationLogger = Logger(subsystem: "com.optimusclip", category: "En
 ///
 /// This avoids the repeated Keychain password prompts that occur during development
 /// due to code signature changes on debug builds.
+///
+/// ## Sendable Justification
+/// Marked `@unchecked Sendable` because:
+/// - `UserDefaults` is documented as thread-safe by Apple
+/// - `SymmetricKey` values are immutable after initialization
+/// - All stored properties are either thread-safe or immutable
 final class EncryptedStorageService: KeychainService, @unchecked Sendable {
     static let shared = EncryptedStorageService()
 
