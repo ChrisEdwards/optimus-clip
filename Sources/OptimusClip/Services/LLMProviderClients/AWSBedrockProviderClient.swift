@@ -34,7 +34,14 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         var urlRequest = try self.buildRequest(request)
         self.applyAuthentication(to: &urlRequest)
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let urlError as URLError {
+            throw self.mapURLError(urlError)
+        }
+
         try self.validateResponse(response)
 
         let converseResponse = try JSONDecoder().decode(BedrockConverseResponse.self, from: data)
@@ -121,6 +128,23 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
             output: output,
             duration: Date().timeIntervalSince(startTime)
         )
+    }
+
+    private func mapURLError(_ error: URLError) -> LLMProviderError {
+        switch error.code {
+        case .timedOut:
+            .timeout
+        case .notConnectedToInternet:
+            .network("No internet connection")
+        case .networkConnectionLost:
+            .network("Connection lost")
+        case .cannotFindHost, .cannotConnectToHost:
+            .network("Cannot connect to AWS Bedrock")
+        case .dnsLookupFailed:
+            .network("DNS lookup failed")
+        default:
+            .network(error.localizedDescription)
+        }
     }
 }
 

@@ -22,7 +22,15 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
 
         let startTime = Date()
         let urlRequest = try self.buildRequest(request)
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let urlError as URLError {
+            throw self.mapURLError(urlError)
+        }
+
         try self.validateResponse(response)
 
         let chatResponse = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
@@ -86,6 +94,23 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
             output: output,
             duration: Date().timeIntervalSince(startTime)
         )
+    }
+
+    private func mapURLError(_ error: URLError) -> LLMProviderError {
+        switch error.code {
+        case .timedOut:
+            .timeout
+        case .notConnectedToInternet:
+            .network("No internet connection")
+        case .networkConnectionLost:
+            .network("Connection lost")
+        case .cannotFindHost, .cannotConnectToHost:
+            .network("Cannot connect to OpenRouter API")
+        case .dnsLookupFailed:
+            .network("DNS lookup failed")
+        default:
+            .network(error.localizedDescription)
+        }
     }
 }
 

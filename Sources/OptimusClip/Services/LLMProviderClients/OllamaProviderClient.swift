@@ -17,8 +17,26 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
 
     public func transform(_ request: LLMRequest) async throws -> LLMResponse {
         let startTime = Date()
-        let chatURL = self.endpoint.appendingPathComponent("api/chat")
+        let urlRequest = try self.buildRequest(request)
 
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let urlError as URLError {
+            throw self.mapURLError(urlError)
+        }
+
+        try self.validateResponse(response)
+
+        let chatResponse = try JSONDecoder().decode(OllamaChatResponse.self, from: data)
+        return self.buildLLMResponse(chatResponse, startTime: startTime)
+    }
+
+    // MARK: - Helpers
+
+    private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
+        let chatURL = self.endpoint.appendingPathComponent("api/chat")
         var urlRequest = URLRequest(url: chatURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -33,18 +51,18 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
             stream: false,
             options: OllamaOptions(temperature: request.temperature)
         )
-
         urlRequest.httpBody = try JSONEncoder().encode(body)
+        return urlRequest
+    }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-
+    private func validateResponse(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMProviderError.invalidResponse("Invalid response type")
         }
 
         switch httpResponse.statusCode {
         case 200:
-            break
+            return
         case 404:
             throw LLMProviderError.modelNotFound
         case 500 ... 599:
@@ -52,16 +70,32 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
         default:
             throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
         }
+    }
 
-        let chatResponse = try JSONDecoder().decode(OllamaChatResponse.self, from: data)
-        let duration = Date().timeIntervalSince(startTime)
-
-        return LLMResponse(
+    private func buildLLMResponse(_ response: OllamaChatResponse, startTime: Date) -> LLMResponse {
+        LLMResponse(
             provider: .ollama,
-            model: chatResponse.model,
-            output: chatResponse.message.content,
-            duration: duration
+            model: response.model,
+            output: response.message.content,
+            duration: Date().timeIntervalSince(startTime)
         )
+    }
+
+    private func mapURLError(_ error: URLError) -> LLMProviderError {
+        switch error.code {
+        case .timedOut:
+            .timeout
+        case .notConnectedToInternet:
+            .network("No internet connection")
+        case .networkConnectionLost:
+            .network("Connection lost")
+        case .cannotFindHost, .cannotConnectToHost:
+            .network("Cannot connect to Ollama server. Is it running?")
+        case .dnsLookupFailed:
+            .network("DNS lookup failed")
+        default:
+            .network(error.localizedDescription)
+        }
     }
 }
 
