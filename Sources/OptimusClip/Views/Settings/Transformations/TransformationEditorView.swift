@@ -346,47 +346,52 @@ struct TransformationEditorView: View {
 
     /// Runs an LLM transformation test.
     private func runLLMTest() async throws -> String {
-        // Validate provider is configured
         guard let providerName = self.transformation.provider,
-              !providerName.isEmpty,
-              let providerKind = LLMProviderKind(rawValue: providerName) else {
+              !providerName.isEmpty else {
             throw TestError.noProviderConfigured
         }
 
-        // Create the LLM client using the provider
-        let factory = LLMProviderClientFactory()
-        guard let client = try? factory.client(for: providerKind),
-              client.isConfigured() else {
-            throw TestError.providerNotConfigured(providerName)
+        guard let resolution = self.modelResolver.resolveModel(for: self.transformation) else {
+            throw TestError.providerNotConfigured(self.providerDisplayName(forRawValue: providerName))
         }
 
-        // Use the model from the transformation or a reasonable fallback
-        let model = self.transformation.model ?? Self.fallbackModel(for: providerKind)
+        let factory = LLMProviderClientFactory()
+        guard let client = try factory.client(for: resolution.provider),
+              client.isConfigured() else {
+            throw TestError.providerNotConfigured(self.providerDisplayName(for: resolution.provider))
+        }
 
         let llmTransformation = LLMTransformation(
             id: "test-\(self.transformation.id.uuidString)",
             displayName: self.transformation.name,
             providerClient: client,
-            model: model,
+            model: resolution.model,
             systemPrompt: self.transformation.systemPrompt
         )
 
         return try await llmTransformation.transform(self.testInput)
     }
 
-    /// Returns a reasonable fallback model for the given provider.
-    private static func fallbackModel(for provider: LLMProviderKind) -> String {
-        switch provider {
-        case .anthropic:
-            "claude-sonnet-4-20250514"
-        case .openAI:
-            "gpt-4o-mini"
-        case .openRouter:
-            "anthropic/claude-3.5-sonnet"
-        case .ollama:
-            "llama3"
-        case .awsBedrock:
-            "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    private func providerDisplayName(for provider: LLMProviderKind) -> String { provider.displayName }
+
+    private func providerDisplayName(forRawValue rawValue: String) -> String {
+        if let kind = LLMProviderKind(rawValue: rawValue) {
+            return kind.displayName
+        }
+
+        switch rawValue.lowercased() {
+        case "openai":
+            return LLMProviderKind.openAI.displayName
+        case "anthropic":
+            return LLMProviderKind.anthropic.displayName
+        case "openrouter":
+            return LLMProviderKind.openRouter.displayName
+        case "ollama":
+            return LLMProviderKind.ollama.displayName
+        case "awsbedrock", "aws", "bedrock":
+            return LLMProviderKind.awsBedrock.displayName
+        default:
+            return rawValue.capitalized
         }
     }
 }
