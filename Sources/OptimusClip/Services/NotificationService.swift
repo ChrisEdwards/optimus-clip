@@ -70,6 +70,12 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
 
     /// Requests notification permission from the user.
     public func requestPermission() async {
+        // Guard against running without a proper app bundle (e.g., debug binary)
+        guard Bundle.main.bundleIdentifier != nil else {
+            self.permissionGranted = false
+            return
+        }
+
         let center = UNUserNotificationCenter.current()
         center.delegate = self
 
@@ -112,6 +118,11 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
         )
 
         do {
+            // Guard against running without a proper app bundle
+            guard Bundle.main.bundleIdentifier != nil else {
+                NSSound.beep()
+                return
+            }
             try await UNUserNotificationCenter.current().add(request)
         } catch {
             // Fall back to system beep if notification fails
@@ -138,6 +149,10 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
         )
 
         do {
+            // Guard against running without a proper app bundle
+            guard Bundle.main.bundleIdentifier != nil else {
+                return
+            }
             try await UNUserNotificationCenter.current().add(request)
         } catch {
             // Silent fail for transient notifications
@@ -190,6 +205,11 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
 
     /// Sets up notification categories with action buttons.
     private func setupNotificationCategories() {
+        // Guard against running without a proper app bundle (e.g., debug binary)
+        guard Bundle.main.bundleIdentifier != nil else {
+            return
+        }
+
         let openSettingsAction = UNNotificationAction(
             identifier: NotificationAction.openSettings.rawValue,
             title: "Open Settings",

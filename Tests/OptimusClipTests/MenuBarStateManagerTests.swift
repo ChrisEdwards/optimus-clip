@@ -64,21 +64,17 @@ struct MenuBarStateManagerProcessingTests {
         let subject = PassthroughSubject<Bool, Never>()
         var reduceMotion = false
         let notificationCenter = NotificationCenter()
-        let hotkeyPublisher = Just(true).eraseToAnyPublisher()
 
         let manager = MenuBarStateManager(
             processingPublisher: subject.eraseToAnyPublisher(),
             notificationCenter: notificationCenter,
-            reduceMotionProvider: { reduceMotion },
-            hotkeyStatePublisher: hotkeyPublisher,
-            initialHotkeyState: true
+            reduceMotionProvider: { reduceMotion }
         )
 
         #expect(manager.isProcessing == false)
         #expect(manager.shouldAnimateProcessing == false)
         #expect(manager.shouldHighlightProcessingIcon == false)
         #expect(manager.reduceMotionEnabled == false)
-        #expect(manager.hotkeysEnabled == true)
 
         subject.send(true)
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
@@ -95,31 +91,23 @@ struct MenuBarStateManagerProcessingTests {
     }
 }
 
-@Suite("MenuBarStateManager Hotkey Observation")
-struct MenuBarStateManagerHotkeyTests {
+@Suite("MenuBarStateManager State Transitions")
+struct MenuBarStateManagerStateTests {
     @MainActor
-    @Test("Hotkey state publisher toggles disabled icon state")
-    func hotkeyStateDrivesDisabledStatus() {
-        let hotkeySubject = PassthroughSubject<Bool, Never>()
+    @Test("setDisabled controls icon state")
+    func setDisabledDrivesIconState() {
         let manager = MenuBarStateManager(
             processingPublisher: Just(false).eraseToAnyPublisher(),
             notificationCenter: NotificationCenter(),
-            reduceMotionProvider: { false },
-            hotkeyStatePublisher: hotkeySubject.eraseToAnyPublisher(),
-            initialHotkeyState: true
+            reduceMotionProvider: { false }
         )
 
         #expect(manager.iconState == .idle)
-        #expect(manager.hotkeysEnabled == true)
 
-        hotkeySubject.send(false)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        manager.setDisabled(true)
         #expect(manager.iconState == .disabled)
-        #expect(manager.hotkeysEnabled == false)
 
-        hotkeySubject.send(true)
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.01))
+        manager.setDisabled(false)
         #expect(manager.iconState == .idle)
-        #expect(manager.hotkeysEnabled == true)
     }
 }

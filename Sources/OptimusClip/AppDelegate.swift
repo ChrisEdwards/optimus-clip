@@ -19,35 +19,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Set activation policy to accessory (no Dock icon)
         NSApp.setActivationPolicy(.accessory)
 
-        // Enforce single instance (defense in depth with LSMultipleInstancesProhibited)
         self.enforceSingleInstance()
-
-        // Register built-in hotkeys (Clean Terminal Text, Format As Markdown)
         HotkeyManager.shared.registerBuiltInShortcuts()
-
-        // Register saved user transformations
         let savedTransformations = self.loadSavedTransformations()
         HotkeyManager.shared.registerAll(transformations: savedTransformations)
 
-        // Observe app activation to restore windows (fixes Settings window closing issue)
+        // Window restoration observers
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(self.handleWillResignActive),
+            selector: #selector(self.handleWillResignActive(_:)),
             name: NSApplication.willResignActiveNotification,
             object: nil
         )
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(self.handleDidBecomeActive),
+            selector: #selector(self.handleDidBecomeActive(_:)),
             name: NSApplication.didBecomeActiveNotification,
             object: nil
         )
-
-        // Also watch for System Settings termination to restore windows
-        // (Menu bar apps don't become "active" when other apps close)
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
-            selector: #selector(self.handleAppTerminated),
+            selector: #selector(self.handleAppTerminated(_:)),
             name: NSWorkspace.didTerminateApplicationNotification,
             object: nil
         )
