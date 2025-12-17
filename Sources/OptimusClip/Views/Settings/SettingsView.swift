@@ -7,6 +7,7 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable, Identifiable {
     case transformations
     case providers
+    case history
     case general
     case permissions
 
@@ -17,6 +18,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .transformations: "Transformations"
         case .providers: "Providers"
+        case .history: "History"
         case .general: "General"
         case .permissions: "Permissions"
         }
@@ -27,6 +29,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .transformations: "wand.and.stars"
         case .providers: "cloud"
+        case .history: "clock.arrow.circlepath"
         case .general: "gearshape"
         case .permissions: "lock.shield"
         }
@@ -38,6 +41,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 /// Provides access to all Optimus Clip configuration sections:
 /// - **Transformations**: Create and edit clipboard transformation rules
 /// - **Providers**: Configure LLM API credentials
+/// - **History**: Browse and search transformation history
 /// - **General**: App-wide preferences
 /// - **Permissions**: Accessibility permission management
 ///
@@ -58,6 +62,12 @@ struct SettingsView: View {
                     Label(SettingsTab.providers.label, systemImage: SettingsTab.providers.iconName)
                 }
                 .tag(SettingsTab.providers)
+
+            HistoryTabView()
+                .tabItem {
+                    Label(SettingsTab.history.label, systemImage: SettingsTab.history.iconName)
+                }
+                .tag(SettingsTab.history)
 
             GeneralTabView()
                 .tabItem {
