@@ -41,7 +41,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 /// - **General**: App-wide preferences
 /// - **Permissions**: Accessibility permission management
 ///
-/// Window size is fixed at 450x500 to prevent layout issues and follow macOS HIG.
+/// Window is resizable with reasonable bounds. macOS automatically persists window size.
 struct SettingsView: View {
     @State private var selectedTab: SettingsTab = .transformations
 
@@ -71,8 +71,14 @@ struct SettingsView: View {
                 }
                 .tag(SettingsTab.permissions)
         }
-        .frame(width: 650, height: 500)
-        .fixedSize()
+        .frame(
+            minWidth: 550,
+            idealWidth: 650,
+            maxWidth: 900,
+            minHeight: 400,
+            idealHeight: 550,
+            maxHeight: 750
+        )
     }
 }
 
