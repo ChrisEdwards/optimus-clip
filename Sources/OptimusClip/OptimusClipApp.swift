@@ -1,15 +1,16 @@
-// TEST: Adding back menu content
 import KeyboardShortcuts
 import MenuBarExtraAccess
 import OptimusClipCore
+import Sparkle
 import SwiftData
 import SwiftUI
 
-/// Main entry point for Optimus Clip - TEST VERSION.
+/// Main entry point for Optimus Clip.
 @main
 struct OptimusClipApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var menuBarState = MenuBarStateManager()
+    @StateObject private var updaterWrapper = UpdaterWrapper()
 
     private let historyContainer: ModelContainer
     private let historyStore: HistoryStore
@@ -34,7 +35,7 @@ struct OptimusClipApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarMenuContent()
+            MenuBarMenuContent(updaterWrapper: self.updaterWrapper)
         } label: {
             Image(systemName: "clipboard.fill")
                 .opacity(self.menuBarState.iconOpacity)
@@ -58,6 +59,7 @@ struct OptimusClipApp: App {
 
 /// Content view for the menu bar dropdown menu.
 private struct MenuBarMenuContent: View {
+    @ObservedObject var updaterWrapper: UpdaterWrapper
     @Environment(\.openSettings) private var openSettings
     @AppStorage("transformations_data") private var transformationsData: Data = .init()
 
@@ -80,6 +82,13 @@ private struct MenuBarMenuContent: View {
         )
 
         Divider()
+
+        // Only show "Check for Updates" if Sparkle is enabled (production builds)
+        if self.updaterWrapper.canCheckForUpdates {
+            Button("Check for Updates...") {
+                self.updaterWrapper.checkForUpdates()
+            }
+        }
 
         Button("Settings...") {
             NSApp.activate(ignoringOtherApps: true)
