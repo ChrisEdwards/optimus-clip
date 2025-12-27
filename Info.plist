@@ -41,5 +41,19 @@
 
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2025 Chris Edwards. All rights reserved.</string>
+
+    <!-- Sparkle Auto-Update Configuration -->
+    <!-- SUFeedURL: Where to check for updates (appcast XML feed) -->
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/ChrisEdwards/optimus-clip/main/appcast.xml</string>
+
+    <!-- SUPublicEDKey: ed25519 public key for verifying update signatures -->
+    <!-- Private key stored in macOS Keychain (never commit to git) -->
+    <key>SUPublicEDKey</key>
+    <string>mxB0aCb+SXl70aXwoV/JWbXG6QwZ6poqmPTYheqN9c0=</string>
+
+    <!-- SUEnableInstallerLauncherService: Enable XPC-based installer for updates -->
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
 </dict>
 </plist>
