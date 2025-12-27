@@ -40,7 +40,9 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
         var urlRequest = URLRequest(url: chatURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.timeoutInterval = request.timeout
+        // URLRequest timeout is a safety net; primary timeout is handled by async withTimeout wrapper
+        // in LLMTransformation. Set this 50% longer to ensure async timeout fires first.
+        urlRequest.timeoutInterval = request.timeout * 1.5
 
         let body = OllamaChatRequest(
             model: request.model,

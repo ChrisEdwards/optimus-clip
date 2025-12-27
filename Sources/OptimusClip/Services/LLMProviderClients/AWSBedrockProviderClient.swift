@@ -22,7 +22,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
     }
 
     public func isConfigured() -> Bool {
-        self.credentials.isValid
+        self.credentials.isConfiguredAndSupported
     }
 
     public func transform(_ request: LLMRequest) async throws -> LLMResponse {
@@ -58,7 +58,9 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.timeoutInterval = request.timeout
+        // URLRequest timeout is a safety net; primary timeout is handled by async withTimeout wrapper
+        // in LLMTransformation. Set this 50% longer to ensure async timeout fires first.
+        urlRequest.timeoutInterval = request.timeout * 1.5
 
         let body = BedrockConverseRequest(
             system: [BedrockSystemContent(text: request.systemPrompt)],
@@ -155,13 +157,24 @@ private enum BedrockCredentials: Sendable {
     case sigV4(accessKey: String, secretKey: String)
     case bearer(token: String)
 
-    /// Returns true only for credential types that are fully implemented.
-    /// SigV4 signing is not yet implemented, so sigV4 credentials are not considered valid.
-    var isValid: Bool {
+    /// Returns true only for credential types that are fully implemented AND have values.
+    /// SigV4 signing is not yet implemented, so sigV4 credentials return false even when populated.
+    var isConfiguredAndSupported: Bool {
         switch self {
         case .sigV4:
             // SigV4 signing is not implemented - users must use bearer token authentication
             false
+        case let .bearer(token):
+            !token.isEmpty
+        }
+    }
+
+    /// Returns true if credentials have been provided, regardless of implementation support.
+    /// Use this to detect when a user has entered credentials but they aren't supported.
+    var hasCredentials: Bool {
+        switch self {
+        case let .sigV4(accessKey, secretKey):
+            !accessKey.isEmpty && !secretKey.isEmpty
         case let .bearer(token):
             !token.isEmpty
         }

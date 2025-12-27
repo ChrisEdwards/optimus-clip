@@ -54,7 +54,9 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         urlRequest.setValue("Bearer \(self.apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.setValue(self.referer, forHTTPHeaderField: "HTTP-Referer")
         urlRequest.setValue(self.appTitle, forHTTPHeaderField: "X-Title")
-        urlRequest.timeoutInterval = request.timeout
+        // URLRequest timeout is a safety net; primary timeout is handled by async withTimeout wrapper
+        // in LLMTransformation. Set this 50% longer to ensure async timeout fires first.
+        urlRequest.timeoutInterval = request.timeout * 1.5
 
         let body = OpenRouterRequest(
             model: request.model,

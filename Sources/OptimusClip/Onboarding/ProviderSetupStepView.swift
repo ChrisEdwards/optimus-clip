@@ -241,23 +241,15 @@ struct ProviderSetupStepView: View {
                 .multilineTextAlignment(.center)
 
             case let .savedNotValidated(message):
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "key.fill")
-                            .foregroundStyle(.orange)
-                        Text(message)
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.subheadline)
-
-                    Button {
-                        Task { await self.validateCredentials() }
-                    } label: {
-                        Label("Validate", systemImage: "checkmark.circle")
-                            .frame(minWidth: 120)
-                    }
-                    .buttonStyle(.bordered)
+                HStack(spacing: 8) {
+                    Image(systemName: "key.fill").foregroundStyle(.orange)
+                    Text(message).foregroundStyle(.secondary)
                 }
+                .font(.subheadline)
+                Button { Task { await self.validateCredentials() } } label: {
+                    Label("Validate", systemImage: "checkmark.circle").frame(minWidth: 120)
+                }
+                .buttonStyle(.bordered)
             }
         }
         .frame(maxWidth: 400)
@@ -301,16 +293,8 @@ struct ProviderSetupStepView: View {
         }
     }
 
-    private var isValidated: Bool {
-        if case .success = self.validationState {
-            return true
-        }
-        return false
-    }
-
-    private var hasOllamaConfig: Bool {
-        !self.ollamaHost.isEmpty && !self.ollamaPort.isEmpty
-    }
+    private var isValidated: Bool { if case .success = self.validationState { true } else { false } }
+    private var hasOllamaConfig: Bool { !self.ollamaHost.isEmpty && !self.ollamaPort.isEmpty }
 
     private func validateCredentials() async {
         self.validationState = .validating
@@ -492,24 +476,15 @@ private struct ProviderRadioButton: View {
 
 private struct ProviderBulletPoint: View {
     private let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
+    init(_ text: String) { self.text = text }
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text("\u{2022}")
-                .foregroundStyle(.secondary)
-            Text(self.text)
-                .foregroundStyle(.secondary)
+            Text("\u{2022}").foregroundStyle(.secondary)
+            Text(self.text).foregroundStyle(.secondary)
         }
     }
 }
 
-// MARK: - Preview
-
 #Preview("Provider Setup") {
-    ProviderSetupStepView(onContinue: {}, onSkip: {})
-        .frame(width: 500, height: 700)
+    ProviderSetupStepView(onContinue: {}, onSkip: {}).frame(width: 500, height: 700)
 }

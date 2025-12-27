@@ -65,4 +65,7 @@ enum ValidationState: Equatable {
     case validating
     case success(message: String)
     case failure(error: String)
+    /// Saved credentials were found but not yet validated.
+    /// This is distinct from success because the credentials may have been revoked since they were saved.
+    case savedNotValidated(message: String)
 }

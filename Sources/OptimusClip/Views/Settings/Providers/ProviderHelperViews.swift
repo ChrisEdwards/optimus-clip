@@ -23,7 +23,7 @@ struct ValidateButton: View {
             case .failure:
                 Image(systemName: "xmark.circle.fill")
                     .foregroundColor(.red)
-            case .idle:
+            case .idle, .savedNotValidated:
                 Text(self.label)
             }
         }
@@ -46,6 +46,10 @@ struct ValidationStatusView: View {
             Label(error, systemImage: "xmark.circle.fill")
                 .font(.caption)
                 .foregroundColor(.red)
+        case let .savedNotValidated(message):
+            Label(message, systemImage: "key.fill")
+                .font(.caption)
+                .foregroundColor(.orange)
         case .idle, .validating:
             EmptyView()
         }

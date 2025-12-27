@@ -89,12 +89,13 @@ public final class ClipboardMonitor {
     }
 
     deinit {
-        // Ensure timer and pending tasks are properly cleaned up.
-        // Note: This is MainActor-isolated, so cleanup is safe.
-        self.pendingGraceTask?.cancel()
-        self.pendingGraceTask = nil
-        self.timer?.cancel()
-        self.timer = nil
+        // IMPORTANT: deinit cannot be actor-isolated in Swift.
+        // DispatchSourceTimer.cancel() is thread-safe, so this is safe
+        // to call from any thread. Task.cancel() is also thread-safe.
+        // We access stored properties directly without actor isolation,
+        // which is safe in deinit since no other code can access self.
+        pendingGraceTask?.cancel()
+        timer?.cancel()
     }
 
     // MARK: - Lifecycle
