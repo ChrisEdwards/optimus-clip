@@ -2,6 +2,14 @@
 
 Step-by-step guide to releasing a new version of OptimusClip.
 
+## Release Modes
+
+| Mode | Command | Apple Developer Required | Gatekeeper | Auto-Updates |
+|------|---------|-------------------------|------------|--------------|
+| **Signed** | `./Scripts/release.sh` | Yes ($99/year) | No warnings | Works |
+| **Unsigned** | `./Scripts/release.sh --unsigned` | No | Warning (bypass with right-click) | No |
+| **Dry Run** | `./Scripts/release.sh --dry-run` | No | N/A | N/A |
+
 ## Prerequisites
 
 Before your first release, complete the setup in [RELEASE_PREREQUISITES.md](./RELEASE_PREREQUISITES.md).
@@ -102,6 +110,29 @@ After the script completes:
 - Update website
 - Notify beta testers
 
+## Unsigned Release Mode
+
+To release without an Apple Developer account:
+
+```bash
+./Scripts/release.sh --unsigned
+```
+
+This creates a fully functional release but:
+- Users see Gatekeeper warning on first launch
+- Users must right-click → Open → click "Open" to bypass
+- Sparkle auto-updates will NOT work (requires Developer ID signature)
+
+**Only requires:**
+```bash
+export SPARKLE_PRIVATE_KEY_FILE="/path/to/sparkle-private-key"
+```
+
+Good for:
+- Early development releases
+- Technical users comfortable with Gatekeeper bypass
+- Testing the release process before getting Apple Developer account
+
 ## Dry Run Mode
 
 To test the release process without uploading:
@@ -121,8 +152,12 @@ See [RELEASE_GOTCHAS.md](./RELEASE_GOTCHAS.md) for common issues and solutions.
 
 ## Environment Variables
 
-Required for release:
+**For unsigned releases** (no Apple account):
+```bash
+export SPARKLE_PRIVATE_KEY_FILE="/path/to/sparkle-private-key"
+```
 
+**For signed releases** (requires Apple Developer account):
 ```bash
 export APP_STORE_CONNECT_KEY_ID="..."
 export APP_STORE_CONNECT_ISSUER_ID="..."
@@ -131,4 +166,17 @@ export DEVELOPER_ID_APP_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 export SPARKLE_PRIVATE_KEY_FILE="/path/to/sparkle-private-key"
 ```
 
-See [RELEASE_PREREQUISITES.md](./RELEASE_PREREQUISITES.md) for setup instructions.
+### Backing Up Sparkle Private Key
+
+The Sparkle private key is stored in your macOS Keychain. To export for backup:
+
+```bash
+# Export to file (run in terminal, not in shared environment)
+.build/artifacts/sparkle/Sparkle/bin/generate_keys -x > ~/Desktop/sparkle-private-key.txt
+
+# Store in secure location (1Password, encrypted drive, etc.)
+# Then delete the plaintext file
+rm ~/Desktop/sparkle-private-key.txt
+```
+
+See [RELEASE_PREREQUISITES.md](./RELEASE_PREREQUISITES.md) for full setup instructions.
