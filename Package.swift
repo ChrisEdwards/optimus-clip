@@ -53,6 +53,14 @@ let package = Package(
         .package(
             url: "https://github.com/kevinhermawan/swift-llm-chat-anthropic",
             from: "1.0.0"
+        ),
+
+        // Sparkle - macOS automatic update framework
+        // Industry-standard for apps distributed outside Mac App Store
+        // Provides secure ed25519-signed updates with native UI
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            from: "2.8.0"
         )
     ],
 
@@ -72,7 +80,10 @@ let package = Package(
                 "KeyboardShortcuts",
                 .product(name: "MenuBarExtraAccess", package: "MenuBarExtraAccess"),
                 .product(name: "LLMChatOpenAI", package: "swift-llm-chat-openai"),
-                .product(name: "LLMChatAnthropic", package: "swift-llm-chat-anthropic")
+                .product(name: "LLMChatAnthropic", package: "swift-llm-chat-anthropic"),
+
+                // Automatic updates (Phase 7)
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/OptimusClip",
 
