@@ -13,33 +13,43 @@
 # 8. Tag and push
 #
 # Usage:
-#   ./Scripts/release.sh           # Full release
-#   ./Scripts/release.sh --dry-run # Simulate without uploading
+#   ./Scripts/release.sh            # Full signed release (requires Apple Developer)
+#   ./Scripts/release.sh --unsigned # Unsigned release (no Apple account needed)
+#   ./Scripts/release.sh --dry-run  # Simulate without uploading
 #
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="OptimusClip"
 DRY_RUN=false
+UNSIGNED=false
 
 # Parse arguments
 for arg in "$@"; do
     case $arg in
         --dry-run)
             DRY_RUN=true
-            shift
+            ;;
+        --unsigned)
+            UNSIGNED=true
             ;;
     esac
 done
 
-# Required environment variables
-REQUIRED_ENV=(
-    APP_STORE_CONNECT_KEY_ID
-    APP_STORE_CONNECT_ISSUER_ID
-    APP_STORE_CONNECT_API_KEY_P8
-    DEVELOPER_ID_APP_IDENTITY
-    SPARKLE_PRIVATE_KEY_FILE
-)
+# Required environment variables (depends on mode)
+if [[ "$UNSIGNED" == "true" ]]; then
+    REQUIRED_ENV=(
+        SPARKLE_PRIVATE_KEY_FILE
+    )
+else
+    REQUIRED_ENV=(
+        APP_STORE_CONNECT_KEY_ID
+        APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_API_KEY_P8
+        DEVELOPER_ID_APP_IDENTITY
+        SPARKLE_PRIVATE_KEY_FILE
+    )
+fi
 
 # GitHub repo (extracted from git remote)
 GITHUB_REPO="$(git -C "${ROOT_DIR}" remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')"
@@ -66,8 +76,14 @@ source "${ROOT_DIR}/version.env"
 MARKETING_VERSION="${MARKETING_VERSION:?}"
 BUILD_NUMBER="${BUILD_NUMBER:?}"
 VERSION_TAG="v${MARKETING_VERSION}"
-ZIP_NAME="${APP_NAME}-${MARKETING_VERSION}-notarized.zip"
 DSYM_ZIP_NAME="${APP_NAME}-${MARKETING_VERSION}.dSYM.zip"
+
+# Zip name depends on signing mode
+if [[ "$UNSIGNED" == "true" ]]; then
+    ZIP_NAME="${APP_NAME}-${MARKETING_VERSION}.zip"
+else
+    ZIP_NAME="${APP_NAME}-${MARKETING_VERSION}-notarized.zip"
+fi
 
 #
 # Pre-flight checks
@@ -131,23 +147,56 @@ run_checks() {
 }
 
 #
-# Build, sign, and notarize
+# Build, sign, and notarize (or just build for unsigned)
 #
 build_and_sign() {
-    log "Building, signing, and notarizing"
+    if [[ "$UNSIGNED" == "true" ]]; then
+        log "Building unsigned release"
+    else
+        log "Building, signing, and notarizing"
+    fi
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        warn "Dry-run: Skipping sign-and-notarize.sh"
+        warn "Dry-run: Skipping build"
         # Create placeholder files for dry-run
         touch "${ROOT_DIR}/${ZIP_NAME}"
         touch "${ROOT_DIR}/${DSYM_ZIP_NAME}"
         return
     fi
 
-    "${ROOT_DIR}/Scripts/sign-and-notarize.sh"
+    if [[ "$UNSIGNED" == "true" ]]; then
+        # Build and package without Apple signing
+        "${ROOT_DIR}/Scripts/package_app.sh" release
 
-    [[ -f "${ROOT_DIR}/${ZIP_NAME}" ]] || fail "Notarized zip not found: ${ZIP_NAME}"
-    success "Build, sign, and notarize complete"
+        local app_bundle="${ROOT_DIR}/${APP_NAME}.app"
+        [[ -d "${app_bundle}" ]] || fail "App bundle not found: ${app_bundle}"
+
+        # Strip extended attributes
+        xattr -cr "${app_bundle}" 2>/dev/null || true
+
+        # Create zip with ditto (preserves signatures, no AppleDouble files)
+        log "Creating distribution zip: ${ZIP_NAME}"
+        ditto -c -k --keepParent --rsrc "${app_bundle}" "${ROOT_DIR}/${ZIP_NAME}"
+
+        # Archive dSYM if present
+        local dsym_dir="${ROOT_DIR}/.build/release/${APP_NAME}.dSYM"
+        if [[ -d "${dsym_dir}" ]]; then
+            log "Archiving dSYM: ${DSYM_ZIP_NAME}"
+            ditto -c -k --keepParent "${dsym_dir}" "${ROOT_DIR}/${DSYM_ZIP_NAME}"
+        else
+            warn "No dSYM found; skipping dSYM archive"
+            # Create empty placeholder so GitHub release doesn't fail
+            touch "${ROOT_DIR}/${DSYM_ZIP_NAME}"
+        fi
+
+        success "Unsigned build complete"
+        warn "Note: Users will see Gatekeeper warning (right-click > Open to bypass)"
+    else
+        # Full signed and notarized build
+        "${ROOT_DIR}/Scripts/sign-and-notarize.sh"
+        [[ -f "${ROOT_DIR}/${ZIP_NAME}" ]] || fail "Notarized zip not found: ${ZIP_NAME}"
+        success "Build, sign, and notarize complete"
+    fi
 }
 
 #
@@ -334,6 +383,10 @@ main() {
     echo " Version: ${MARKETING_VERSION} (build ${BUILD_NUMBER})"
     if [[ "$DRY_RUN" == "true" ]]; then
         echo " Mode: DRY RUN (no uploads)"
+    elif [[ "$UNSIGNED" == "true" ]]; then
+        echo " Mode: UNSIGNED (no Apple Developer account)"
+    else
+        echo " Mode: SIGNED (full notarization)"
     fi
     echo "========================================"
 
@@ -351,6 +404,18 @@ main() {
     success "Release ${VERSION_TAG} complete!"
     echo "========================================"
     echo ""
+    if [[ "$UNSIGNED" == "true" ]]; then
+        warn "UNSIGNED RELEASE - Users will see Gatekeeper warning"
+        echo ""
+        echo "To install, users must:"
+        echo "  1. Download the zip"
+        echo "  2. Extract the app"
+        echo "  3. Right-click > Open (first time only)"
+        echo "  4. Click 'Open' in the dialog"
+        echo ""
+        echo "Note: Sparkle auto-updates will NOT work (app not signed with Developer ID)"
+        echo ""
+    fi
     echo "Next steps:"
     echo "  1. Verify release at: https://github.com/${GITHUB_REPO}/releases/tag/${VERSION_TAG}"
     echo "  2. Check appcast: https://raw.githubusercontent.com/${GITHUB_REPO}/main/appcast.xml"
