@@ -230,6 +230,28 @@ private struct HistoryGroupHeader: View {
     }
 }
 
+// MARK: - Smart Preview Helper
+
+/// Extracts a meaningful first line from text for preview display.
+///
+/// Processing steps:
+/// 1. Trims leading whitespace and newlines
+/// 2. Extracts first line (up to first newline)
+/// 3. Truncates to maxLength with ellipsis if needed
+/// 4. Returns "(empty)" placeholder for empty/whitespace-only strings
+func smartPreview(for text: String, maxLength: Int = 80) -> String {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return "(empty)" }
+
+    let firstLine = trimmed.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false).first
+        .map(String.init) ?? trimmed
+
+    if firstLine.count <= maxLength {
+        return firstLine
+    }
+    return String(firstLine.prefix(maxLength - 1)) + "…"
+}
+
 // MARK: - History Entry View
 
 private struct HistoryEntryView: View {
@@ -238,50 +260,52 @@ private struct HistoryEntryView: View {
     let onToggle: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             // Header row (always visible)
             Button(action: self.onToggle) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(self.entry.transformationName)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
+                VStack(alignment: .leading, spacing: 4) {
+                    // Line 1: Transformation name + timestamp + chevron
+                    HStack {
+                        Text(self.entry.transformationName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
-                            if !self.entry.wasSuccessful {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                            }
-                        }
+                        Spacer()
 
-                        HStack(spacing: 8) {
-                            if let provider = entry.providerName {
-                                Text(provider.capitalized)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                        Text(self.entry.timestamp.formatted(date: .omitted, time: .shortened))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
 
-                            Text("\(self.entry.inputCharCount) chars")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            Text("\(self.entry.processingTimeMs)ms")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .rotationEffect(.degrees(self.isExpanded ? 90 : 0))
                     }
 
-                    Spacer()
+                    // Line 2: Hero preview (output for success, input for failure)
+                    if self.entry.wasSuccessful {
+                        Text(smartPreview(for: self.entry.outputText))
+                            .font(.callout)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    } else {
+                        // Show input preview (what was attempted) in muted/italic style
+                        Text(smartPreview(for: self.entry.inputText))
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                            .italic()
+                            .lineLimit(1)
+                            .truncationMode(.tail)
 
-                    Text(self.entry.timestamp.formatted(date: .omitted, time: .shortened))
+                        // Line 3: Error message with warning icon
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text(self.entry.errorMessage ?? "Transformation failed")
+                        }
                         .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .rotationEffect(.degrees(self.isExpanded ? 90 : 0))
+                        .foregroundColor(.red)
+                        .lineLimit(2)
+                    }
                 }
                 .contentShape(Rectangle())
             }
@@ -290,6 +314,9 @@ private struct HistoryEntryView: View {
             // Expanded content
             if self.isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
+                    // Metadata line
+                    self.metadataLine
+
                     // Input section
                     TextSection(
                         title: "Input",
@@ -326,6 +353,27 @@ private struct HistoryEntryView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
+    }
+
+    /// Metadata line showing provider, model, char count, and processing time.
+    private var metadataLine: some View {
+        HStack(spacing: 0) {
+            if let provider = entry.providerName {
+                Text(provider.capitalized)
+                if self.entry.modelUsed != nil {
+                    Text(" · ")
+                }
+            }
+            if let model = entry.modelUsed {
+                Text(model)
+            }
+            if self.entry.providerName != nil || self.entry.modelUsed != nil {
+                Text(" · ")
+            }
+            Text("\(self.entry.inputCharCount) chars · \(self.entry.processingTimeMs)ms")
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
     }
 
     private func copyToClipboard(_ text: String) {
