@@ -49,11 +49,17 @@ struct TransformationEditorView: View {
     /// Model resolver for determining defaults.
     private let modelResolver = ModelResolver()
 
-    /// Available models fetched from ModelCatalog.
-    @State private var availableModels: [LLMModel] = []
+    /// Shared model cache from environment.
+    @Environment(\.modelCache) private var modelCache
 
     /// Whether models are currently being fetched.
     @State private var isLoadingModels = false
+
+    /// Available models from cache for current provider.
+    private var availableModels: [LLMModel] {
+        guard let providerKind = self.currentProviderKind else { return [] }
+        return self.modelCache.models(for: providerKind) ?? []
+    }
 
     var body: some View {
         Form {
@@ -238,10 +244,6 @@ struct TransformationEditorView: View {
             // Helper text based on state
             self.modelHelperText
         }
-        .onChange(of: self.providerBinding.wrappedValue) { _, _ in
-            // Clear fetched models when provider changes (they're provider-specific)
-            self.availableModels = []
-        }
     }
 
     /// Helper text displayed below the model combobox.
@@ -323,7 +325,7 @@ struct TransformationEditorView: View {
             let fetcher = ModelFetcher()
             let models = await fetcher.fetchModels(for: providerKind)
             await MainActor.run {
-                self.availableModels = models
+                self.modelCache.setModels(models, for: providerKind)
                 self.isLoadingModels = false
             }
         }

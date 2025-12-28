@@ -1,4 +1,5 @@
 // swiftlint:disable file_length
+import OptimusClipCore
 import SwiftUI
 
 // MARK: - OpenAI Provider Section
@@ -9,8 +10,12 @@ struct OpenAIProviderSection: View {
     @Binding var modelId: String
     @Binding var validationState: ValidationState
 
-    @State private var availableModels: [OpenAIModel] = []
+    @Environment(\.modelCache) private var modelCache
     @State private var isLoadingModels = false
+
+    private var availableModels: [LLMModel] {
+        self.modelCache.models(for: .openAI) ?? []
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -19,7 +24,6 @@ struct OpenAIProviderSection: View {
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: self.apiKey) { _, _ in
                         self.validationState = .idle
-                        self.availableModels = []
                     }
             }
 
@@ -84,7 +88,10 @@ struct OpenAIProviderSection: View {
             do {
                 let models = try await OpenAIValidator.listModels(apiKey: self.apiKey)
                 await MainActor.run {
-                    self.availableModels = models
+                    self.modelCache.setModels(
+                        models.map { LLMModel(id: $0.id, name: $0.id, provider: .openAI) },
+                        for: .openAI
+                    )
                     self.isLoadingModels = false
                 }
             } catch {
@@ -204,8 +211,12 @@ struct OpenRouterProviderSection: View {
     @Binding var modelId: String
     @Binding var validationState: ValidationState
 
-    @State private var availableModels: [OpenRouterModel] = []
+    @Environment(\.modelCache) private var modelCache
     @State private var isLoadingModels = false
+
+    private var availableModels: [LLMModel] {
+        self.modelCache.models(for: .openRouter) ?? []
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -214,7 +225,6 @@ struct OpenRouterProviderSection: View {
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: self.apiKey) { _, _ in
                         self.validationState = .idle
-                        self.availableModels = []
                     }
             }
 
@@ -279,7 +289,10 @@ struct OpenRouterProviderSection: View {
             do {
                 let models = try await OpenRouterValidator.listModels(apiKey: self.apiKey)
                 await MainActor.run {
-                    self.availableModels = models
+                    self.modelCache.setModels(
+                        models.map { LLMModel(id: $0.id, name: $0.name, provider: .openRouter) },
+                        for: .openRouter
+                    )
                     self.isLoadingModels = false
                 }
             } catch {
@@ -321,8 +334,12 @@ struct OllamaProviderSection: View {
     @Binding var modelId: String
     @Binding var validationState: ValidationState
 
-    @State private var availableModels: [OllamaModel] = []
+    @Environment(\.modelCache) private var modelCache
     @State private var isLoadingModels = false
+
+    private var availableModels: [LLMModel] {
+        self.modelCache.models(for: .ollama) ?? []
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -335,7 +352,6 @@ struct OllamaProviderSection: View {
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: self.host) { _, _ in
                         self.validationState = .idle
-                        self.availableModels = []
                     }
             }
 
@@ -348,7 +364,6 @@ struct OllamaProviderSection: View {
                     .textFieldStyle(.roundedBorder)
                     .onChange(of: self.port) { _, _ in
                         self.validationState = .idle
-                        self.availableModels = []
                     }
             }
 
@@ -359,7 +374,7 @@ struct OllamaProviderSection: View {
 
                 ComboBox(
                     text: self.$modelId,
-                    items: self.availableModels.map(\.name),
+                    items: self.availableModels.map(\.id),
                     placeholder: "llama3.2"
                 )
                 .frame(height: 24)
@@ -416,7 +431,10 @@ struct OllamaProviderSection: View {
             do {
                 let models = try await OllamaValidator.listModels(host: self.host, port: self.port)
                 await MainActor.run {
-                    self.availableModels = models
+                    self.modelCache.setModels(
+                        models.map { LLMModel(id: $0.name, name: $0.name, provider: .ollama) },
+                        for: .ollama
+                    )
                     self.isLoadingModels = false
                 }
             } catch {
@@ -463,8 +481,12 @@ struct AWSBedrockProviderSection: View {
     @Binding var modelId: String
     @Binding var validationState: ValidationState
 
-    @State private var availableModels: [BedrockModel] = []
+    @Environment(\.modelCache) private var modelCache
     @State private var isLoadingModels = false
+
+    private var availableModels: [LLMModel] {
+        self.modelCache.models(for: .awsBedrock) ?? []
+    }
 
     // All AWS regions where Bedrock is available
     private let awsRegions = [
@@ -525,7 +547,6 @@ struct AWSBedrockProviderSection: View {
             }
             .onChange(of: self.region) { _, _ in
                 self.validationState = .idle
-                self.availableModels = []
             }
 
             // Model selection with native combobox
@@ -680,7 +701,10 @@ struct AWSBedrockProviderSection: View {
                     )
                 }
                 await MainActor.run {
-                    self.availableModels = models
+                    self.modelCache.setModels(
+                        models.map { LLMModel(id: $0.id, name: $0.id, provider: .awsBedrock) },
+                        for: .awsBedrock
+                    )
                     self.isLoadingModels = false
                 }
             } catch {

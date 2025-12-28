@@ -12,6 +12,9 @@ struct OptimusClipApp: App {
     @StateObject private var menuBarState = MenuBarStateManager()
     @StateObject private var updaterWrapper = UpdaterWrapper()
 
+    /// Model cache for settings window session.
+    @State private var modelCache = ModelCache()
+
     private let historyContainer: ModelContainer
     private let historyStore: HistoryStore
 
@@ -64,9 +67,11 @@ struct OptimusClipApp: App {
 
         Settings {
             SettingsView()
+                .onAppear { self.modelCache = ModelCache() }
         }
         .modelContainer(self.historyContainer)
         .environment(\.historyStore, self.historyStore)
+        .environment(\.modelCache, self.modelCache)
     }
 }
 
