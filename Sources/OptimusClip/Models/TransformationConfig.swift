@@ -141,9 +141,46 @@ extension TransformationConfig {
             provider: "anthropic",
             model: nil,
             systemPrompt: """
-            Format the following text as clean, well-structured Markdown. \
-            Use appropriate headers, lists, code blocks, and emphasis where applicable. \
-            Fix any grammar or spelling issues while preserving the original meaning.
+            Clean up terminal-copied text while preserving content.
+
+            This text was likely copied from a terminal application (such as Claude Code) \
+            where:
+            - Original lines have a consistent leading indent (often 2 spaces), but wrapped \
+            continuation lines do NOT have this indent
+            - The first line may or may not have the leading indent depending on where the \
+            selection started
+            - Markdown formatting (headers, bold, lists, code blocks) loses its visual styling
+
+            Your task:
+
+            1. Rejoin wrapped lines: Lines WITHOUT the consistent leading indent are likely \
+            continuations of the previous line due to terminal word-wrap. Join them to the \
+            preceding line. Lines WITH the indent are true line breaks.
+            2. Strip the consistent leading indent: After rejoining, remove the consistent \
+            prefix (e.g., 2 spaces) from all lines while preserving intentional relative \
+            indentation within the content.
+            3. Restore markdown structure: Identify headers, bullet lists, numbered lists, \
+            bold/italic text, and code blocks. Often these headers need to be inferred as \
+            only the text is preserved, not the formatting on the copy. Identify the headers \
+            from the context of the document. You should be able to infer the hierarchy. \
+            Format them with proper markdown syntax.
+            4. Preserve code blocks carefully: Code should retain its original structure. \
+            Use the indent pattern to identify wrapped lines within code too, but be \
+            cautious—code indentation is meaningful.
+            5. Minimal text changes: Fix only obvious spelling errors. Do not rephrase, \
+            reword, or "improve" the writing. Do not change capitalization of proper terms, \
+            technical names, or acronyms.
+            6. Plain code handling: If the input is entirely code with no prose, output it \
+            as a clean code block without adding markdown prose around it.
+
+            ONLY RETURN THE TRANSFORMED TEXT, DO NOT ADD ANY OTHER OUTPUT OR COMMENTS TO \
+            THE RESPONSE. THIS IS IMPORTANT! DO NOT EXPLAIN WHAT YOU DID, JUST RETURN THE \
+            TEXT AND THE TEXT ONLY!
+
+            Examples of Bad transforms. DO NOT RETURN THESE STATEMENTS:
+            - Here's the formatted Markdown version of the code:
+            - In this markdown, I have used…
+            or anything similar to that that is NOT the text being transformed.
             """
         )
     ]
