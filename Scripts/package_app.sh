@@ -12,6 +12,7 @@ APP_BUNDLE="${ROOT_DIR}/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents"
 MACOS="${CONTENTS}/MacOS"
 RESOURCES="${CONTENTS}/Resources"
+FRAMEWORKS="${CONTENTS}/Frameworks"
 
 # Select Info.plist based on build mode
 # Debug builds use a separate bundle ID for isolated accessibility permissions
@@ -32,10 +33,34 @@ fi
 
 # Create bundle structure
 rm -rf "${APP_BUNDLE}"
-mkdir -p "${MACOS}" "${RESOURCES}"
+mkdir -p "${MACOS}" "${RESOURCES}" "${FRAMEWORKS}"
 
 # Copy binary
 cp "${BINARY}" "${MACOS}/${APP_NAME}"
+
+# Add rpath for embedded frameworks
+# This allows the binary to find Sparkle.framework in Contents/Frameworks
+install_name_tool -add_rpath "@executable_path/../Frameworks" "${MACOS}/${APP_NAME}" 2>/dev/null || true
+
+# Copy Sparkle.framework
+# Use the framework from the build directory (matches the build configuration)
+if [[ "$MODE" == "release" ]]; then
+    SPARKLE_SRC="${ROOT_DIR}/.build/arm64-apple-macosx/release/Sparkle.framework"
+else
+    SPARKLE_SRC="${ROOT_DIR}/.build/arm64-apple-macosx/debug/Sparkle.framework"
+fi
+
+# Fallback to xcframework if build-specific framework not found
+if [[ ! -d "${SPARKLE_SRC}" ]]; then
+    SPARKLE_SRC="${ROOT_DIR}/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+fi
+
+if [[ -d "${SPARKLE_SRC}" ]]; then
+    cp -R "${SPARKLE_SRC}" "${FRAMEWORKS}/"
+    echo "✓ Bundled Sparkle.framework"
+else
+    echo "⚠️  Warning: Sparkle.framework not found, app may not launch"
+fi
 
 # Generate Info.plist with version substitution
 sed -e "s/\$(MARKETING_VERSION)/${MARKETING_VERSION}/g" \
