@@ -13,6 +13,9 @@
     <key>CFBundleDisplayName</key>
     <string>Optimus Clip (Debug)</string>
 
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+
     <key>CFBundleExecutable</key>
     <string>OptimusClip</string>
 
