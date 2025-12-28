@@ -19,6 +19,12 @@ struct TransformationsSidebarView: View {
     /// Callback to delete a transformation.
     let onDelete: (UUID) -> Void
 
+    /// Whether the currently selected transformation is a built-in.
+    private var isSelectedBuiltIn: Bool {
+        guard let id = self.selectedID else { return false }
+        return self.transformations.first { $0.id == id }?.isBuiltIn ?? false
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Transformation list
@@ -44,8 +50,8 @@ struct TransformationsSidebarView: View {
                     Image(systemName: "minus")
                 }
                 .buttonStyle(.borderless)
-                .disabled(self.selectedID == nil)
-                .help("Delete Transformation")
+                .disabled(self.selectedID == nil || self.isSelectedBuiltIn)
+                .help(self.isSelectedBuiltIn ? "Built-in transformations cannot be deleted" : "Delete Transformation")
 
                 Spacer()
             }
@@ -73,9 +79,16 @@ struct TransformationRowView: View {
                 .foregroundColor(self.transformation.isEnabled ? .green : .secondary)
                 .font(.system(size: 12))
 
-            // Name
-            Text(self.transformation.name)
-                .lineLimit(1)
+            // Name with lock icon for built-ins
+            HStack(spacing: 4) {
+                Text(self.transformation.name)
+                    .lineLimit(1)
+                if self.transformation.isBuiltIn {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
 
             Spacer()
 

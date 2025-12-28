@@ -48,7 +48,7 @@ enum TransformationType: String, Codable, CaseIterable, Identifiable, Sendable {
 /// ```swift
 /// KeyboardShortcuts.Recorder("Hotkey:", name: config.shortcutName)
 /// ```
-struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
+struct TransformationConfig: Identifiable, Hashable, Sendable {
     /// Unique identifier for this transformation.
     var id: UUID
 
@@ -70,6 +70,10 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
     /// System prompt for LLM transformations.
     var systemPrompt: String
 
+    /// Whether this is a built-in transformation that cannot be deleted.
+    /// Built-ins have restricted editing (hotkey and enabled only).
+    var isBuiltIn: Bool
+
     /// Creates a new transformation configuration with defaults.
     ///
     /// - Parameters:
@@ -80,6 +84,7 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
     ///   - provider: LLM provider name (optional).
     ///   - model: LLM model name (optional).
     ///   - systemPrompt: System prompt for LLM processing (defaults to empty).
+    ///   - isBuiltIn: Whether this is a permanent built-in transformation (defaults to false).
     init(
         id: UUID = UUID(),
         name: String,
@@ -87,7 +92,8 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
         isEnabled: Bool = true,
         provider: String? = nil,
         model: String? = nil,
-        systemPrompt: String = ""
+        systemPrompt: String = "",
+        isBuiltIn: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -96,6 +102,7 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
         self.provider = provider
         self.model = model
         self.systemPrompt = systemPrompt
+        self.isBuiltIn = isBuiltIn
     }
 
     /// KeyboardShortcuts.Name for this transformation's hotkey.
@@ -104,6 +111,27 @@ struct TransformationConfig: Identifiable, Codable, Hashable, Sendable {
     /// The KeyboardShortcuts package stores the actual shortcut value.
     var shortcutName: KeyboardShortcuts.Name {
         KeyboardShortcuts.Name.transformation(self.id)
+    }
+}
+
+// MARK: - Codable Conformance
+
+extension TransformationConfig: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case id, name, type, isEnabled, provider, model, systemPrompt, isBuiltIn
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(UUID.self, forKey: .id)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.type = try container.decode(TransformationType.self, forKey: .type)
+        self.isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
+        self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
+        self.model = try container.decodeIfPresent(String.self, forKey: .model)
+        self.systemPrompt = try container.decode(String.self, forKey: .systemPrompt)
+        // Backward compatibility: default to false if key missing (pre-update data)
+        self.isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
     }
 }
 
@@ -116,23 +144,32 @@ extension TransformationConfig {
     ///
     /// Using a fixed UUID ensures the KeyboardShortcuts storage persists
     /// across app restarts, since shortcuts are keyed by transformation UUID.
-    private static let cleanTerminalTextDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
+    /// Public for migration checks.
+    static let cleanTerminalTextDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
 
     /// Stable UUID for the default "Format As Markdown" transformation.
     private static let formatAsMarkdownDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
+
+    /// The built-in "Clean Terminal Text" transformation.
+    ///
+    /// This transformation is permanent and cannot be deleted by users.
+    /// Used for migration when ensuring the built-in exists.
+    static let builtInCleanTerminalText = TransformationConfig(
+        id: cleanTerminalTextDefaultID,
+        name: "Clean Terminal Text",
+        type: .algorithmic,
+        isEnabled: true,
+        systemPrompt: "",
+        isBuiltIn: true
+    )
 
     /// Default transformations provided on first launch.
     ///
     /// These serve as examples and can be modified or deleted by the user.
     /// Uses stable UUIDs so recorded shortcuts persist across app restarts.
+    /// Note: "Clean Terminal Text" is a permanent built-in (isBuiltIn: true).
     static let defaultTransformations: [TransformationConfig] = [
-        TransformationConfig(
-            id: cleanTerminalTextDefaultID,
-            name: "Clean Terminal Text",
-            type: .algorithmic,
-            isEnabled: true,
-            systemPrompt: ""
-        ),
+        builtInCleanTerminalText,
         TransformationConfig(
             id: formatAsMarkdownDefaultID,
             name: "Format As Markdown",

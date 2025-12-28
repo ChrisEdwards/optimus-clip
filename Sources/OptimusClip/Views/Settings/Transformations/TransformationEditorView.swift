@@ -53,8 +53,13 @@ struct TransformationEditorView: View {
         Form {
             // Basic settings
             Section("Basic Settings") {
-                TextField("Name", text: self.$transformation.name)
-                    .textFieldStyle(.roundedBorder)
+                // Name: read-only for built-ins, editable for user transformations
+                if self.transformation.isBuiltIn {
+                    LabeledContent("Name", value: self.transformation.name)
+                } else {
+                    TextField("Name", text: self.$transformation.name)
+                        .textFieldStyle(.roundedBorder)
+                }
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -81,18 +86,8 @@ struct TransformationEditorView: View {
                 Toggle("Enabled", isOn: self.$transformation.isEnabled)
             }
 
-            // Transformation type
-            Section("Transformation Type") {
-                Picker("Type", selection: self.$transformation.type) {
-                    ForEach(TransformationType.allCases) { type in
-                        Text(type.detailedName).tag(type)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            // LLM-specific settings (conditional)
-            if self.transformation.type == .llm {
+            // LLM Configuration: shown for user transformations (always LLM), hidden for built-ins
+            if !self.transformation.isBuiltIn {
                 Section("LLM Configuration") {
                     Picker("Provider", selection: self.providerBinding) {
                         Text("Select Provider").tag("")
