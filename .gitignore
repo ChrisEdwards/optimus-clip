@@ -45,3 +45,8 @@ coverage/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Local testing artifacts
+.playwright-mcp/
+history/
+test
