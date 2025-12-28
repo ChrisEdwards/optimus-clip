@@ -42,7 +42,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
             throw self.mapURLError(urlError)
         }
 
-        try self.validateResponse(response)
+        try self.validateResponse(response, data: data)
 
         let converseResponse = try JSONDecoder().decode(BedrockConverseResponse.self, from: data)
         return self.buildLLMResponse(converseResponse, model: request.model, startTime: startTime)
@@ -51,7 +51,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
     // MARK: - Helpers
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
-        guard let url = self.buildConverseURL(modelId: request.model) else {
+        guard let url = self.buildConverseURL(modelId: request.model, region: self.region) else {
             throw LLMProviderError.invalidResponse("Invalid Bedrock URL")
         }
 
@@ -74,9 +74,18 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         return urlRequest
     }
 
-    private func buildConverseURL(modelId: String) -> URL? {
-        let host = "bedrock-runtime.\(self.region).amazonaws.com"
-        let path = "/model/\(modelId)/converse"
+    private func buildConverseURL(modelId: String, region: String) -> URL? {
+        let host = "bedrock-runtime.\(region).amazonaws.com"
+        // Convert to inference profile ID if needed (newer models require us./eu./apac. prefix)
+        let profileId = InferenceProfileHelper.profileId(for: modelId, region: region)
+        // Model ID must be URL-encoded - colons in model IDs (like "anthropic.claude-3-haiku:0")
+        // must be percent-encoded as %3A for AWS URLs
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(":")
+        guard let encodedModelId = profileId.addingPercentEncoding(withAllowedCharacters: allowed) else {
+            return nil
+        }
+        let path = "/model/\(encodedModelId)/converse"
         return URL(string: "https://\(host)\(path)")
     }
 
@@ -91,7 +100,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         }
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    private func validateResponse(_ response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMProviderError.invalidResponse("Invalid response type")
         }
@@ -108,8 +117,19 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         case 500 ... 599:
             throw LLMProviderError.server("AWS Bedrock server error")
         default:
-            throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
+            // Try to parse error message from AWS response
+            let errorMessage = self.parseErrorMessage(from: data) ?? "HTTP \(httpResponse.statusCode)"
+            throw LLMProviderError.server(errorMessage)
         }
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        // AWS Bedrock error format: {"message":"..."}
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = json["message"] as? String else {
+            return nil
+        }
+        return message
     }
 
     private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {

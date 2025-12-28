@@ -647,7 +647,7 @@ private enum ModelRequestFormat {
 
 /// Converts model IDs to cross-region inference profile format.
 /// Newer AWS Bedrock models require inference profiles like `us.anthropic.claude-3-5-haiku-20241022-v1:0`.
-private enum InferenceProfileHelper {
+enum InferenceProfileHelper {
     /// Converts a model ID to cross-region inference profile format if needed.
     static func profileId(for modelId: String, region: String) -> String {
         // If already has a region prefix (us., eu., apac.), return as-is

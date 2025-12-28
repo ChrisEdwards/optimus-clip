@@ -25,6 +25,10 @@ struct ComboBox: NSViewRepresentable {
         // Update items if changed
         let currentItems = nsView.objectValues.compactMap { $0 as? String }
         if currentItems != self.items {
+            // Dismiss popup before updating items to prevent stuck dropdown
+            if nsView.isButtonBordered {
+                nsView.window?.makeFirstResponder(nil)
+            }
             nsView.removeAllItems()
             nsView.addItems(withObjectValues: self.items)
         }
@@ -33,6 +37,11 @@ struct ComboBox: NSViewRepresentable {
         if nsView.stringValue != self.text {
             nsView.stringValue = self.text
         }
+    }
+
+    static func dismantleNSView(_ nsView: NSComboBox, coordinator _: Coordinator) {
+        // Ensure popup is dismissed when view is removed
+        nsView.window?.makeFirstResponder(nil)
     }
 
     func makeCoordinator() -> Coordinator {
@@ -56,6 +65,8 @@ struct ComboBox: NSViewRepresentable {
                   comboBox.indexOfSelectedItem >= 0,
                   let selected = comboBox.objectValueOfSelectedItem as? String else { return }
             self.parent.text = selected
+            // Dismiss the dropdown after selection
+            comboBox.window?.makeFirstResponder(nil)
         }
     }
 }

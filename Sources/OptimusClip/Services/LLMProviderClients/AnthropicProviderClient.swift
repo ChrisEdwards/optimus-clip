@@ -32,7 +32,7 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
             throw self.mapURLError(urlError)
         }
 
-        try self.validateResponse(response)
+        try self.validateResponse(response, data: data)
 
         let messagesResponse = try JSONDecoder().decode(AnthropicMessagesResponse.self, from: data)
         return self.buildLLMResponse(messagesResponse, startTime: startTime)
@@ -65,7 +65,7 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
         return urlRequest
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    private func validateResponse(_ response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMProviderError.invalidResponse("Invalid response type")
         }
@@ -82,8 +82,20 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
         case 500 ... 599:
             throw LLMProviderError.server("Anthropic server error")
         default:
-            throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
+            // Try to parse error message from Anthropic's response
+            let errorMessage = self.parseErrorMessage(from: data) ?? "HTTP \(httpResponse.statusCode)"
+            throw LLMProviderError.server(errorMessage)
         }
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        // Anthropic error format: {"type":"error","error":{"type":"invalid_request_error","message":"..."}}
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let errorObj = json["error"] as? [String: Any],
+              let message = errorObj["message"] as? String else {
+            return nil
+        }
+        return message
     }
 
     private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {

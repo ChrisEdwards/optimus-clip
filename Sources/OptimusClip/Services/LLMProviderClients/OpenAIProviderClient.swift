@@ -31,7 +31,7 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
             throw self.mapURLError(urlError)
         }
 
-        try self.validateResponse(response)
+        try self.validateResponse(response, data: data)
 
         let chatResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
         return self.buildLLMResponse(chatResponse, startTime: startTime)
@@ -65,7 +65,7 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         return urlRequest
     }
 
-    private func validateResponse(_ response: URLResponse) throws {
+    private func validateResponse(_ response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMProviderError.invalidResponse("Invalid response type")
         }
@@ -82,8 +82,20 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         case 500 ... 599:
             throw LLMProviderError.server("OpenAI server error")
         default:
-            throw LLMProviderError.server("HTTP \(httpResponse.statusCode)")
+            // Try to parse error message from OpenAI's response
+            let errorMessage = self.parseErrorMessage(from: data) ?? "HTTP \(httpResponse.statusCode)"
+            throw LLMProviderError.server(errorMessage)
         }
+    }
+
+    private func parseErrorMessage(from data: Data) -> String? {
+        // OpenAI error format: {"error":{"message":"...","type":"...","code":"..."}}
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let errorObj = json["error"] as? [String: Any],
+              let message = errorObj["message"] as? String else {
+            return nil
+        }
+        return message
     }
 
     private func parseRetryAfter(_ response: HTTPURLResponse) -> TimeInterval? {
