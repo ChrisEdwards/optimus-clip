@@ -275,13 +275,27 @@ EOF
 )
 
     # Insert new item after the comment in channel (before closing </channel>)
-    # Using sed to insert after the comment line
+    # Using awk for multi-line insertion (sed doesn't handle newlines well on macOS)
     local temp_file
     temp_file="$(mktemp)"
+    local item_file
+    item_file="$(mktemp)"
+
+    # Write item to temp file to avoid shell escaping issues
+    printf '%s\n' "${new_item}" > "${item_file}"
 
     # Insert new item right after the automation comment
-    sed "s|<!-- Release items are added by release automation (newest first). -->|<!-- Release items are added by release automation (newest first). -->\n${new_item}|" \
-        "${appcast_file}" > "${temp_file}"
+    awk -v item_file="${item_file}" '
+        /<!-- Release items are added by release automation \(newest first\)\. -->/ {
+            print
+            while ((getline line < item_file) > 0) print line
+            close(item_file)
+            next
+        }
+        { print }
+    ' "${appcast_file}" > "${temp_file}"
+
+    rm -f "${item_file}"
 
     # Validate XML
     if ! xmllint --noout "${temp_file}" 2>/dev/null; then
