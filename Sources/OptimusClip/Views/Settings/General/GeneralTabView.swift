@@ -217,22 +217,24 @@ struct AboutSection: View {
 
 // MARK: - History Section
 
+/// Settings for history storage limits.
+///
+/// The full history browsing experience lives in the dedicated History tab.
+/// This section only controls storage settings.
 private struct HistorySettingsSection: View {
     @Environment(\.historyStore) private var historyStore
     @AppStorage(SettingsKey.historyEntryLimit) private var entryLimit = DefaultSettings.historyEntryLimit
 
-    @State private var recentEntries: [HistoryRecord] = []
-    @State private var isLoading = false
-    @State private var loadError: String?
+    @State private var updateError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             Stepper(value: self.$entryLimit, in: 25 ... 500, step: 25) {
                 Text("Store up to \(self.entryLimit) entries")
             }
             .onChange(of: self.entryLimit) { _, newValue in
                 Task {
-                    await self.setEntryLimitOnStore(newValue, reload: true)
+                    await self.updateEntryLimit(newValue)
                 }
             }
 
@@ -240,117 +242,28 @@ private struct HistorySettingsSection: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Divider()
-
-            HStack {
-                Text("Recent Transformations")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Button("Refresh") {
-                    Task {
-                        await self.refreshHistory()
-                    }
-                }
-                .disabled(self.isLoading)
-            }
-
-            if self.isLoading {
-                ProgressView()
-            } else if let loadError {
-                Text(loadError)
+            if let updateError {
+                Text(updateError)
                     .font(.caption)
                     .foregroundColor(.red)
-            } else if self.recentEntries.isEmpty {
-                Text("No history yet. Trigger a transformation to populate this list.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(self.recentEntries.prefix(5)) { entry in
-                        HistoryEntryRow(entry: entry)
-                        if entry.id != self.recentEntries.prefix(5).last?.id {
-                            Divider()
-                        }
-                    }
-                }
             }
         }
         .task {
-            await self.setEntryLimitOnStore(self.entryLimit, reload: false)
-            await self.refreshHistory()
+            await self.updateEntryLimit(self.entryLimit)
         }
     }
 
-    private func setEntryLimitOnStore(_ value: Int, reload: Bool) async {
+    private func updateEntryLimit(_ value: Int) async {
         do {
             try await self.historyStore.updateEntryLimit(value)
-            if reload {
-                await self.refreshHistory()
+            await MainActor.run {
+                self.updateError = nil
             }
         } catch {
             await MainActor.run {
-                self.loadError = "Failed to update history limit: \(error.localizedDescription)"
+                self.updateError = "Failed to update history limit: \(error.localizedDescription)"
             }
         }
-    }
-
-    private func refreshHistory() async {
-        await MainActor.run {
-            self.isLoading = true
-            self.loadError = nil
-        }
-
-        do {
-            let entries = try await self.historyStore.fetchRecent(limit: 5)
-            await MainActor.run {
-                self.recentEntries = entries
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.loadError = "Unable to load history: \(error.localizedDescription)"
-                self.isLoading = false
-            }
-        }
-    }
-}
-
-private struct HistoryEntryRow: View {
-    let entry: HistoryRecord
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(self.entry.transformationName)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text(self.entry.timestamp.formatted(date: .omitted, time: .shortened))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            if let provider = entry.providerName {
-                Text("\(provider.uppercased()) · \(self.entry.modelUsed ?? "Unknown Model")")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Text(self.previewText)
-                .font(.caption)
-                .lineLimit(2)
-                .foregroundColor(.secondary)
-
-            Text("\(self.entry.inputCharCount) chars · \(self.entry.processingTimeMs) ms")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private var previewText: String {
-        let text = self.entry.outputText.isEmpty ? self.entry.inputText : self.entry.outputText
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
