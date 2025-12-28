@@ -42,3 +42,6 @@ pnpm-debug.log*
 # Test artifacts
 *.xcresult
 coverage/
+
+# bv (beads viewer) local config and caches
+.bv/
