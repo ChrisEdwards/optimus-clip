@@ -6,5 +6,22 @@
         <description>Intelligent clipboard middleware for macOS</description>
         <language>en</language>
         <!-- Release items are added by release automation (newest first). -->
+        <item>
+            <title>Version 0.1.0</title>
+            <link>https://github.com/ChrisEdwards/optimus-clip/releases/tag/v0.1.0</link>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <pubDate>Sun, 28 Dec 2025 23:29:32 +0000</pubDate>
+            <enclosure
+                url="https://github.com/ChrisEdwards/optimus-clip/releases/download/v0.1.0/OptimusClip-0.1.0.zip"
+                length="3668886"
+                type="application/octet-stream"
+                sparkle:edSignature="3668886" />
+            <description><![CDATA[
+                <h2>What's New in 0.1.0</h2>
+                <p>See release notes on GitHub for details.</p>
+            ]]></description>
+        </item>
     </channel>
 </rss>
