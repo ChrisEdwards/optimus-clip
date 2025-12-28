@@ -86,6 +86,9 @@ let package = Package(
                 .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "Sources/OptimusClip",
+            resources: [
+                .process("Resources")
+            ],
 
             // Swift 6 concurrency checking
             swiftSettings: [

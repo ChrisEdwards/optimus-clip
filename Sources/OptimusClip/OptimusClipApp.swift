@@ -15,6 +15,16 @@ struct OptimusClipApp: App {
     private let historyContainer: ModelContainer
     private let historyStore: HistoryStore
 
+    /// Menu bar icon loaded from bundle resources, configured as template image.
+    private static let menuBarIcon: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "MenuBarIcon", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else {
+            return nil
+        }
+        image.isTemplate = true
+        return image
+    }()
+
     init() {
         EncryptedStorageService.shared.migrateFromKeychain()
 
@@ -37,8 +47,13 @@ struct OptimusClipApp: App {
         MenuBarExtra {
             MenuBarMenuContent(updaterWrapper: self.updaterWrapper)
         } label: {
-            Image(systemName: "clipboard.fill")
-                .opacity(self.menuBarState.iconOpacity)
+            if let icon = Self.menuBarIcon {
+                Image(nsImage: icon)
+                    .opacity(self.menuBarState.iconOpacity)
+            } else {
+                Image(systemName: "clipboard.fill")
+                    .opacity(self.menuBarState.iconOpacity)
+            }
         }
         .menuBarExtraStyle(.menu)
         .menuBarExtraAccess(isPresented: self.$menuBarState.isMenuPresented) { statusItem in
