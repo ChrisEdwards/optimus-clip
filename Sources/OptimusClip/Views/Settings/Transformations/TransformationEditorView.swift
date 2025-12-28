@@ -49,6 +49,12 @@ struct TransformationEditorView: View {
     /// Model resolver for determining defaults.
     private let modelResolver = ModelResolver()
 
+    /// Available models fetched from ModelCatalog.
+    @State private var availableModels: [LLMModel] = []
+
+    /// Whether models are currently being fetched.
+    @State private var isLoadingModels = false
+
     var body: some View {
         Form {
             // Basic settings
@@ -211,15 +217,115 @@ struct TransformationEditorView: View {
     private var modelPickerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                TextField("Model (optional)", text: self.modelBinding).textFieldStyle(.roundedBorder)
-                if !self.modelBinding.wrappedValue.isEmpty {
-                    Button { self.transformation.model = nil } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
-                    }.buttonStyle(.plain).help("Clear to use provider default")
+                ComboBox(
+                    text: self.modelComboBoxBinding,
+                    items: self.modelComboBoxItems,
+                    placeholder: "Select model"
+                )
+                .frame(height: 24)
+
+                Button(action: self.fetchModels) {
+                    if self.isLoadingModels {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Text("Fetch")
+                    }
+                }
+                .disabled(self.isLoadingModels || !self.canFetchModels)
+            }
+
+            // Helper text based on state
+            self.modelHelperText
+        }
+        .onChange(of: self.providerBinding.wrappedValue) { _, _ in
+            // Clear fetched models when provider changes (they're provider-specific)
+            self.availableModels = []
+        }
+    }
+
+    /// Helper text displayed below the model combobox.
+    @ViewBuilder
+    private var modelHelperText: some View {
+        if self.transformation.model == nil {
+            Text("Using provider default")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        } else if self.availableModels.isEmpty, self.canFetchModels {
+            Text("Click Fetch to load available models")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        } else {
+            Text("Pinned to this model")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    /// Whether the Fetch button should be enabled.
+    private var canFetchModels: Bool { ModelFetcher().canFetch(for: self.currentProviderKind) }
+
+    /// The current provider as LLMProviderKind, if valid.
+    private var currentProviderKind: LLMProviderKind? {
+        guard let provider = self.transformation.provider, !provider.isEmpty else { return nil }
+        return LLMProviderKind(rawValue: provider)
+    }
+
+    /// Items to display in the model combobox.
+    ///
+    /// Always includes "Default (resolved-model)" first, followed by fetched models.
+    private var modelComboBoxItems: [String] {
+        var items: [String] = []
+
+        // Default option with resolved model name
+        let resolvedDefault = self.modelResolver.resolveModel(for: self.transformation)?.model ?? "default"
+        items.append("Default (\(resolvedDefault))")
+
+        // Add fetched models (excluding the resolved default to avoid duplication in display)
+        for model in self.availableModels where model.id != resolvedDefault {
+            items.append(model.id)
+        }
+
+        return items
+    }
+
+    /// Binding for the model combobox that handles Default vs pinned semantics.
+    ///
+    /// - "Default (...)" selection → `model = nil` (follows provider default)
+    /// - Explicit model selection → `model = "model-id"` (pinned)
+    private var modelComboBoxBinding: Binding<String> {
+        Binding(
+            get: {
+                if let model = self.transformation.model {
+                    return model // Explicit/pinned selection
+                } else {
+                    // Show "Default (resolved-model)"
+                    let resolvedDefault = self.modelResolver.resolveModel(for: self.transformation)?.model ?? "default"
+                    return "Default (\(resolvedDefault))"
+                }
+            },
+            set: { newValue in
+                if newValue.hasPrefix("Default") {
+                    self.transformation.model = nil // Use provider default
+                } else {
+                    self.transformation.model = newValue // Pin to specific model
                 }
             }
-            Text("Default: \(self.modelResolver.resolveModel(for: self.transformation)?.model ?? "default")")
-                .font(.caption).foregroundColor(.secondary)
+        )
+    }
+
+    /// Fetches available models for the current provider.
+    private func fetchModels() {
+        guard let providerKind = self.currentProviderKind else { return }
+        self.isLoadingModels = true
+
+        Task {
+            let fetcher = ModelFetcher()
+            let models = await fetcher.fetchModels(for: providerKind)
+            await MainActor.run {
+                self.availableModels = models
+                self.isLoadingModels = false
+            }
         }
     }
 
@@ -266,14 +372,6 @@ struct TransformationEditorView: View {
         )
     }
 
-    /// Binding for model (handles nil -> empty string conversion).
-    private var modelBinding: Binding<String> {
-        Binding(
-            get: { self.transformation.model ?? "" },
-            set: { self.transformation.model = $0.isEmpty ? nil : $0 }
-        )
-    }
-
     // MARK: - Shortcut Validation
 
     /// Validates a newly recorded shortcut for conflicts.
@@ -308,172 +406,25 @@ struct TransformationEditorView: View {
     private func runTest() async {
         guard !self.testInput.isEmpty else { return }
 
+        // Capture values before async work
+        let transformationSnapshot = self.transformation
+        let inputSnapshot = self.testInput
+
         let startTime = Date()
         self.testState = .running
         self.testOutput = ""
 
         do {
-            let output: String = switch self.transformation.type {
-            case .algorithmic:
-                // Use built-in algorithmic transformation
-                try await self.runAlgorithmicTest()
-
-            case .llm:
-                // Use LLM transformation
-                try await self.runLLMTest()
-            }
-
+            let tester = TransformationTester()
+            let output = try await tester.runTest(
+                transformation: transformationSnapshot,
+                input: inputSnapshot
+            )
             let duration = Date().timeIntervalSince(startTime)
             self.testOutput = output
             self.testState = .success(duration: duration)
-
         } catch {
             self.testState = .error(message: error.localizedDescription)
-        }
-    }
-
-    /// Runs an algorithmic transformation test.
-    private func runAlgorithmicTest() async throws -> String {
-        // Use the WhitespaceStripTransformation for algorithmic types
-        let transformation = WhitespaceStripTransformation()
-        return try await transformation.transform(self.testInput)
-    }
-
-    /// Runs an LLM transformation test.
-    private func runLLMTest() async throws -> String {
-        guard let providerName = self.transformation.provider,
-              !providerName.isEmpty else {
-            throw TestError.noProviderConfigured
-        }
-
-        guard let resolution = self.modelResolver.resolveModel(for: self.transformation) else {
-            throw TestError.providerNotConfigured(self.providerDisplayName(forRawValue: providerName))
-        }
-
-        let factory = LLMProviderClientFactory()
-        guard let client = try factory.client(for: resolution.provider),
-              client.isConfigured() else {
-            throw TestError.providerNotConfigured(self.providerDisplayName(for: resolution.provider))
-        }
-
-        let llmTransformation = LLMTransformation(
-            id: "test-\(self.transformation.id.uuidString)",
-            displayName: self.transformation.name,
-            providerClient: client,
-            model: resolution.model,
-            systemPrompt: self.transformation.systemPrompt
-        )
-
-        return try await llmTransformation.transform(self.testInput)
-    }
-
-    private func providerDisplayName(for provider: LLMProviderKind) -> String { provider.displayName }
-
-    private func providerDisplayName(forRawValue rawValue: String) -> String {
-        if let kind = LLMProviderKind(rawValue: rawValue) {
-            return kind.displayName
-        }
-
-        switch rawValue.lowercased() {
-        case "openai":
-            return LLMProviderKind.openAI.displayName
-        case "anthropic":
-            return LLMProviderKind.anthropic.displayName
-        case "openrouter":
-            return LLMProviderKind.openRouter.displayName
-        case "ollama":
-            return LLMProviderKind.ollama.displayName
-        case "awsbedrock", "aws", "bedrock":
-            return LLMProviderKind.awsBedrock.displayName
-        default:
-            return rawValue.capitalized
-        }
-    }
-}
-
-// MARK: - Test Errors
-
-/// Errors that can occur during transformation testing.
-private enum TestError: LocalizedError {
-    case noProviderConfigured
-    case providerNotConfigured(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .noProviderConfigured:
-            "No LLM provider selected"
-        case let .providerNotConfigured(name):
-            "\(name) is not configured"
-        }
-    }
-}
-
-// MARK: - Shortcut Conflict Warning View
-
-/// Displays an inline warning for keyboard shortcut conflicts.
-struct ShortcutConflictWarningView: View {
-    let conflict: ShortcutConflict
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: self.conflict.iconName)
-                .foregroundColor(self.iconColor)
-                .font(.system(size: 14))
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(self.conflict.shortDescription)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(self.textColor)
-
-                Text(self.conflict.message)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Action button for critical conflicts
-                if self.conflict.severity == .critical {
-                    Button("Choose Different Shortcut") {
-                        self.onDismiss()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .tint(.red)
-                    .padding(.top, 4)
-                }
-            }
-        }
-        .padding(10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(self.backgroundColor)
-        .cornerRadius(8)
-    }
-
-    private var iconColor: Color {
-        switch self.conflict.severity {
-        case .critical: .red
-        case .system: .orange
-        case .internal: .yellow
-        case .common: .blue
-        }
-    }
-
-    private var textColor: Color {
-        switch self.conflict.severity {
-        case .critical: .red
-        case .system: .orange
-        case .internal: .primary
-        case .common: .primary
-        }
-    }
-
-    private var backgroundColor: Color {
-        switch self.conflict.severity {
-        case .critical: Color.red.opacity(0.1)
-        case .system: Color.orange.opacity(0.1)
-        case .internal: Color.yellow.opacity(0.1)
-        case .common: Color.blue.opacity(0.05)
         }
     }
 }
