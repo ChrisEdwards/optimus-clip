@@ -143,13 +143,14 @@ final class HotkeyManager: ObservableObject {
         // Store transformation for lookup when hotkey fires
         self.transformationsByShortcut[shortcutName] = transformation
 
-        // Register handler with KeyboardShortcuts. Look up the latest
-        // transformation configuration at trigger time so edits in
-        // Settings apply immediately without restarting the app.
+        // Register handler with KeyboardShortcuts. Load the transformation
+        // directly from storage at trigger time to ensure we always use the
+        // most current persisted configuration, bypassing any cache staleness.
         KeyboardShortcuts.onKeyUp(for: shortcutName) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                guard let latest = self.transformationsByShortcut[shortcutName] else {
+                // Read fresh from storage to guarantee latest prompt/settings
+                guard let latest = self.loadTransformationFromStorage(for: shortcutName) else {
                     return
                 }
                 await self.triggerTransformation(latest)
@@ -445,6 +446,15 @@ final class HotkeyManager: ObservableObject {
     /// - Returns: The cached transformation, or nil if not found.
     func getCachedTransformation(for name: KeyboardShortcuts.Name) -> TransformationConfig? {
         self.transformationsByShortcut[name]
+    }
+
+    /// Loads a transformation directly from storage, bypassing the cache.
+    private func loadTransformationFromStorage(for name: KeyboardShortcuts.Name) -> TransformationConfig? {
+        guard let data = self.userDefaults.data(forKey: SettingsKey.transformationsData),
+              let transformations = try? JSONDecoder().decode([TransformationConfig].self, from: data) else {
+            return nil
+        }
+        return transformations.first { $0.shortcutName == name }
     }
 
     // MARK: - Private Helpers

@@ -99,12 +99,20 @@ struct TransformationEditorView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .onChange(of: self.transformation) { _, newValue in
-            // Explicitly sync HotkeyManager cache when transformation changes.
-            // This ensures the cache is updated even if SwiftUI's derived binding
-            // for nested properties (like systemPrompt) doesn't trigger the parent
-            // binding's setter reliably.
-            HotkeyManager.shared.updateTransformation(newValue)
+        // Sync HotkeyManager cache when any editable property changes.
+        // Watch individual properties because onChange(of: struct) may not fire
+        // reliably when derived bindings like $transformation.systemPrompt are used.
+        .onChange(of: self.transformation.systemPrompt) { _, _ in
+            HotkeyManager.shared.updateTransformation(self.transformation)
+        }
+        .onChange(of: self.transformation.provider) { _, _ in
+            HotkeyManager.shared.updateTransformation(self.transformation)
+        }
+        .onChange(of: self.transformation.model) { _, _ in
+            HotkeyManager.shared.updateTransformation(self.transformation)
+        }
+        .onChange(of: self.transformation.name) { _, _ in
+            HotkeyManager.shared.updateTransformation(self.transformation)
         }
     }
 
