@@ -106,73 +106,123 @@ struct TransformationConfigTests {
         #expect(formatAsMarkdown != nil)
         #expect(formatAsMarkdown?.isBuiltIn == false)
     }
+}
 
-    // MARK: - Migration Logic Tests
+// MARK: - Storage Tests
 
-    @Test("Migration adds built-in when missing from array")
-    func migrationAddsBuiltInWhenMissing() {
-        // Simulate user who deleted Clean Terminal Text before update
-        var loaded: [TransformationConfig] = [
-            TransformationConfig(name: "My Custom Transform", type: .llm)
+/// Tests for TransformationConfig storage methods.
+///
+/// These tests verify that loadFromStorage and saveToStorage work correctly
+/// and that all decode paths in the app use consistent logic.
+@Suite("TransformationConfig Storage Tests")
+struct TransformationConfigStorageTests {
+    /// Test key used to avoid polluting real UserDefaults.
+    private let testKey = SettingsKey.transformationsData
+
+    /// Clears test data before each test.
+    private func clearTestData() {
+        UserDefaults.standard.removeObject(forKey: self.testKey)
+    }
+
+    @Test("loadFromStorage returns defaults when storage is empty")
+    func loadFromStorageReturnsDefaultsWhenEmpty() {
+        self.clearTestData()
+
+        let loaded = TransformationConfig.loadFromStorage()
+
+        #expect(loaded == TransformationConfig.defaultTransformations)
+    }
+
+    @Test("loadFromStorage decodes valid stored data")
+    func loadFromStorageDecodesValidData() throws {
+        self.clearTestData()
+
+        // Store custom transformations
+        let custom = [
+            TransformationConfig(name: "Custom One", type: .llm, systemPrompt: "Test prompt 1"),
+            TransformationConfig(name: "Custom Two", type: .algorithmic)
         ]
+        let data = try JSONEncoder().encode(custom)
+        UserDefaults.standard.set(data, forKey: self.testKey)
 
-        // Apply migration logic (same as in TransformationsTabView getter)
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if !loaded.contains(where: { $0.id == builtInID }) {
-            loaded.insert(TransformationConfig.builtInCleanTerminalText, at: 0)
-        }
+        let loaded = TransformationConfig.loadFromStorage()
 
         #expect(loaded.count == 2)
-        #expect(loaded[0].id == builtInID)
-        #expect(loaded[0].isBuiltIn == true)
+        #expect(loaded[0].name == "Custom One")
+        #expect(loaded[0].systemPrompt == "Test prompt 1")
+        #expect(loaded[1].name == "Custom Two")
+
+        self.clearTestData()
     }
 
-    @Test("Migration sets isBuiltIn flag on existing Clean Terminal Text")
-    func migrationSetsIsBuiltInFlag() {
-        // Simulate existing data without isBuiltIn flag
-        var loaded: [TransformationConfig] = [
-            TransformationConfig(
-                id: TransformationConfig.cleanTerminalTextDefaultID,
-                name: "Clean Terminal Text",
-                type: .algorithmic,
-                isBuiltIn: false // Pre-update data
-            )
-        ]
+    @Test("loadFromStorage returns defaults on corrupted data")
+    func loadFromStorageReturnsDefaultsOnCorruptedData() {
+        self.clearTestData()
 
-        // Apply migration logic (same as in TransformationsTabView getter)
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
-            if !loaded[index].isBuiltIn {
-                loaded[index].isBuiltIn = true
-            }
-        }
+        // Store invalid JSON
+        let corruptedData = Data("not valid json".utf8)
+        UserDefaults.standard.set(corruptedData, forKey: self.testKey)
 
-        #expect(loaded.count == 1)
-        #expect(loaded[0].isBuiltIn == true)
+        let loaded = TransformationConfig.loadFromStorage()
+
+        #expect(loaded == TransformationConfig.defaultTransformations)
+
+        self.clearTestData()
     }
 
-    @Test("Migration preserves user customizations on built-in")
-    func migrationPreservesCustomizations() {
-        // User may have changed hotkey or disabled - migration should preserve those
-        var loaded: [TransformationConfig] = [
+    @Test("saveToStorage and loadFromStorage round-trip correctly")
+    func saveAndLoadRoundTrip() {
+        self.clearTestData()
+
+        let original = [
             TransformationConfig(
-                id: TransformationConfig.cleanTerminalTextDefaultID,
-                name: "Clean Terminal Text",
-                type: .algorithmic,
-                isEnabled: false, // User disabled it
+                name: "Round Trip Test",
+                type: .llm,
+                isEnabled: true,
+                provider: "anthropic",
+                model: "claude-3-opus",
+                systemPrompt: "You are a helpful assistant.",
                 isBuiltIn: false
             )
         ]
 
-        // Apply migration
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
-            if !loaded[index].isBuiltIn {
-                loaded[index].isBuiltIn = true
-            }
+        TransformationConfig.saveToStorage(original)
+        let loaded = TransformationConfig.loadFromStorage()
+
+        #expect(loaded.count == 1)
+        #expect(loaded[0].name == original[0].name)
+        #expect(loaded[0].type == original[0].type)
+        #expect(loaded[0].isEnabled == original[0].isEnabled)
+        #expect(loaded[0].provider == original[0].provider)
+        #expect(loaded[0].model == original[0].model)
+        #expect(loaded[0].systemPrompt == original[0].systemPrompt)
+        #expect(loaded[0].isBuiltIn == original[0].isBuiltIn)
+
+        self.clearTestData()
+    }
+
+    @Test("Edited prompt persists and loads correctly")
+    func editedPromptPersistsCorrectly() {
+        self.clearTestData()
+
+        // Start with defaults
+        var transformations = TransformationConfig.defaultTransformations
+
+        // Find Format As Markdown and edit its prompt
+        if let index = transformations.firstIndex(where: { $0.name == "Format As Markdown" }) {
+            transformations[index].systemPrompt = "CUSTOM EDITED PROMPT"
         }
 
-        #expect(loaded[0].isBuiltIn == true)
-        #expect(loaded[0].isEnabled == false) // Preserved
+        // Save
+        TransformationConfig.saveToStorage(transformations)
+
+        // Load fresh
+        let loaded = TransformationConfig.loadFromStorage()
+
+        // Verify the edit persisted
+        let formatAsMarkdown = loaded.first { $0.name == "Format As Markdown" }
+        #expect(formatAsMarkdown?.systemPrompt == "CUSTOM EDITED PROMPT")
+
+        self.clearTestData()
     }
 }

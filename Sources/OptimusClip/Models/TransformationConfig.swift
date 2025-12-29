@@ -222,3 +222,38 @@ extension TransformationConfig {
         )
     ]
 }
+
+// MARK: - Storage
+
+extension TransformationConfig {
+    /// Loads transformations from UserDefaults storage.
+    ///
+    /// This is the single source of truth for decoding transformations.
+    /// All code paths (AppDelegate, Settings UI, Menu Bar) must use this method
+    /// to ensure consistent decoding and avoid cache/UI desync bugs.
+    ///
+    /// - Returns: The decoded transformations, or `defaultTransformations` if storage is empty or decode fails.
+    static func loadFromStorage() -> [TransformationConfig] {
+        guard let data = UserDefaults.standard.data(forKey: SettingsKey.transformationsData),
+              !data.isEmpty else {
+            return self.defaultTransformations
+        }
+
+        do {
+            return try JSONDecoder().decode([TransformationConfig].self, from: data)
+        } catch {
+            // Log decode failure for debugging but fall back to defaults
+            // This should only happen if schema changes incompatibly
+            print("TransformationConfig decode failed: \(error). Using defaults.")
+            return self.defaultTransformations
+        }
+    }
+
+    /// Saves transformations to UserDefaults storage.
+    ///
+    /// - Parameter transformations: The transformations to persist.
+    static func saveToStorage(_ transformations: [TransformationConfig]) {
+        let data = (try? JSONEncoder().encode(transformations)) ?? Data()
+        UserDefaults.standard.set(data, forKey: SettingsKey.transformationsData)
+    }
+}
