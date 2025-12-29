@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <em>More than meets the clipboard</em>
+  <em>A transformer for your clipboard!</em>
 </p>
 
 <p align="center">
@@ -105,13 +105,9 @@ Create as many transformations as you need, each with its own hotkey:
 | **Summarize** | Get a concise summary of any text |
 | **Extract Content** | Copy an entire webpage, extract just the article |
 | **Fix Grammar** | Clean up writing without changing meaning |
-| **Code Review** | Get instant feedback on copied code |
 
-### 📝 Clipboard History
+### 📝 Transformation History
 Every transformation is logged—search and filter through past inputs and outputs, grouped by date.
-
-### 🔐 Secure
-API keys stored in macOS Keychain. Algorithmic transforms never leave your machine. You control which AI provider processes your data.
 
 ## Quick Start
 
@@ -145,59 +141,11 @@ The built-in **Clean Terminal Text** transformation works immediately—no API k
 
 Optimus Clip supports multiple AI providers. Choose based on your needs:
 
-| Provider | Best For | Pricing |
-|----------|----------|---------|
-| **Anthropic** | Claude models, excellent for writing tasks | Pay per token |
-| **OpenAI** | GPT-4o, widely supported | Pay per token |
-| **OpenRouter** | Access 100+ models with one API key | Pay per token |
-| **Ollama** | Local models, complete privacy, no API costs | Free (runs locally) |
-| **AWS Bedrock** | Enterprise deployments, existing AWS infrastructure | Pay per token |
-
-### Anthropic (Claude)
-
-1. Get an API key at [console.anthropic.com](https://console.anthropic.com)
-2. Open Optimus Clip → Settings → Providers
-3. Paste your API key in the Anthropic section
-4. Models available: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
-
-### OpenAI (GPT-4)
-
-1. Get an API key at [platform.openai.com](https://platform.openai.com)
-2. Open Optimus Clip → Settings → Providers
-3. Paste your API key in the OpenAI section
-4. Models available: GPT-4o, GPT-4o mini, and more
-
-### OpenRouter
-
-Access Claude, GPT-4, Gemini, Llama, Mistral, and 100+ other models with a single API key.
-
-1. Get an API key at [openrouter.ai](https://openrouter.ai)
-2. Open Optimus Clip → Settings → Providers
-3. Paste your API key in the OpenRouter section
-4. Browse and select from all available models
-
-### Ollama (Local Models)
-
-Run models entirely on your machine—no API key, no costs, complete privacy.
-
-1. Install Ollama: [ollama.ai](https://ollama.ai)
-2. Pull a model: `ollama pull llama3.2` or `ollama pull gemma3`
-3. Open Optimus Clip → Settings → Providers
-4. Enable Ollama (defaults to `http://localhost:11434`)
-
-**Recommended local models:**
-- `llama3.2` — Good balance of speed and quality
-- `gemma3` — Google's efficient model, great for general tasks
-- `mistral` — Fast, great for simple transformations
-
-### AWS Bedrock
-
-For enterprise users with existing AWS infrastructure.
-
-1. Configure AWS credentials with Bedrock access
-2. Open Optimus Clip → Settings → Providers
-3. Enter your AWS region and credentials
-4. Access Claude, Llama, and other models via Bedrock
+- Anthropic
+- OpenAI
+- OpenRouter
+- Ollama (local)
+- AWS Bedrock
 
 ## Creating Custom Transformations
 
@@ -209,23 +157,6 @@ Each transformation has:
 - **Name** — What you'll see in the menu and history
 - **Hotkey** — The keyboard shortcut to trigger it
 - **System Prompt** — Instructions telling the AI what to do
-
-### Writing Effective Prompts
-
-The system prompt is sent to the AI along with your clipboard content. Be specific:
-
-**❌ Vague:**
-```
-Make this text better.
-```
-
-**✅ Specific:**
-```
-Fix grammar and spelling errors in the following text.
-Preserve the original meaning and tone.
-Do not add or remove content.
-Return only the corrected text with no explanation.
-```
 
 ### Example Transformations
 

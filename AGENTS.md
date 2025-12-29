@@ -640,6 +640,7 @@ struct TransformationTests {
 ```
 
 #### Running Tests
+Prefer using `make` to run tests as it minimzes output to conserve tokens. Only use these approaches if you need more detailed output.
 ```bash
 npm run test              # Run all tests
 swift test --filter "TransformationTests"  # Run specific suite
@@ -760,3 +761,7 @@ struct LLMTransformation {
 4. "Should this be in OptimusClip or OptimusClipCore?"
 5. "Will this pass swiftformat and swiftlint?"
 6. "Is this security-sensitive? (API keys, clipboard, permissions)"
+
+## Important Rules
+- Every commit must contain the id of the bead it implements. You are only allowed to commit without a bead id if the user approves.
+- Every change you make to the code must be covered in tests. This includes new code as well as any changes.
