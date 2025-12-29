@@ -7,64 +7,337 @@
 </p>
 
 <p align="center">
+  <a href="#why-optimus-clip">Why Optimus Clip</a> •
   <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#ai-providers">AI Providers</a> •
+  <a href="#creating-custom-transformations">Custom Transformations</a> •
   <a href="#development">Development</a>
 </p>
 
 ---
 
+## Why Optimus Clip?
+
+**Your clipboard is dumb. Optimus Clip makes it smart.**
+
+Every day you copy text that needs work before you can use it:
+- Terminal output with awkward line breaks
+- Emails wrapped at 72 characters from the 1990s
+- Code snippets that need cleaning
+- Notes that need formatting
+- Prose that needs grammar fixes
+
+Instead of pasting into a text editor, cleaning it up, and copying again—**press one hotkey**. Optimus Clip intercepts your clipboard, transforms it instantly, and pastes the result.
+
+**No windows. No context switching. Just transformed text.**
+
 ## Features
 
-Optimus Clip is a macOS menu bar application that intercepts clipboard content via global hotkeys, transforms it using algorithmic rules or LLMs, and pastes the result.
+### ⌨️ Hotkey-Driven Workflow
+Transform clipboard content without leaving your current app. Copy text, press a hotkey, and the transformed result is instantly pasted. No windows, no context switching.
 
-- **Menu Bar Integration** - Lives unobtrusively in your menu bar
-- **Global Hotkeys** - Transform clipboard content with a keystroke
-- **Algorithmic Transformations** - Strip whitespace, change case, format code
-- **LLM-Powered Transforms** - Use OpenAI, Anthropic, or local models
-- **Clipboard History** - Quick access to recent clips
+### 🧹 Clean Terminal Text
+**The reason this tool exists.** If you use CLI tools like Claude Code, Cursor, or any terminal application, you know the pain: copy text and it's full of leading spaces, wrapped lines, and formatting artifacts.
 
-## Requirements
+Clean Terminal Text fixes this instantly—no LLM required.
+
+<details>
+<summary><strong>Example: Before & After</strong></summary>
+
+**Input (copied from terminal):**
+```
+  This is a paragraph of text that was displayed in a
+  terminal window with a specific width. Each line has
+  leading spaces and hard line breaks that make it
+  unusable when pasted elsewhere.
+
+  Here's another paragraph with the same problem.
+```
+
+**Output (after Clean Terminal Text):**
+```
+This is a paragraph of text that was displayed in a terminal window with a specific width. Each line has leading spaces and hard line breaks that make it unusable when pasted elsewhere.
+
+Here's another paragraph with the same problem.
+```
+</details>
+
+### ✨ AI-Powered Transformations
+The real power: create custom transformations that use AI to process your clipboard. Each transformation gets its own hotkey.
+
+**Format As Markdown** ships as a default—paste any messy text and get clean, structured markdown:
+
+<details>
+<summary><strong>Example: Before & After</strong></summary>
+
+**Input (copied from a webpage or document):**
+```
+Getting Started    First, install the dependencies. You'll need Node.js
+version 18 or higher. Then run npm install.   Configuration   Create a
+config.json file in the root directory. Required fields: apiKey (your
+API key), endpoint (the server URL), timeout (in milliseconds).
+```
+
+**Output (after Format As Markdown):**
+```markdown
+## Getting Started
+
+First, install the dependencies. You'll need Node.js version 18 or higher. Then run `npm install`.
+
+## Configuration
+
+Create a `config.json` file in the root directory.
+
+**Required fields:**
+- `apiKey` — your API key
+- `endpoint` — the server URL
+- `timeout` — in milliseconds
+```
+</details>
+
+### 🎯 Unlimited Custom Transformations
+Create as many transformations as you need, each with its own hotkey:
+
+| Use Case | What It Does |
+|----------|--------------|
+| **Translate** | Translate any copied text to your language |
+| **Summarize** | Get a concise summary of any text |
+| **Extract Content** | Copy an entire webpage, extract just the article |
+| **Fix Grammar** | Clean up writing without changing meaning |
+| **Code Review** | Get instant feedback on copied code |
+
+### 📝 Clipboard History
+Every transformation is logged—search and filter through past inputs and outputs, grouped by date.
+
+### 🔐 Secure
+API keys stored in macOS Keychain. Algorithmic transforms never leave your machine. You control which AI provider processes your data.
+
+## Quick Start
+
+### Requirements
+- macOS 15.0 (Sequoia) or later
+- For AI transformations: API key from any [supported provider](#ai-providers)
+
+### Installation
+
+**Download the latest release:**
+
+[Download Optimus Clip v0.1.0](https://github.com/chrisedwards/optimus-clip/releases/latest)
+
+**Or build from source:**
+```bash
+git clone https://github.com/chrisedwards/optimus-clip.git
+cd optimus-clip
+make start
+```
+
+### First Run
+
+1. **Grant Accessibility Permission** — Required for global hotkeys and paste simulation
+2. **Set Your Hotkeys** — Open Settings → Transformations and assign keyboard shortcuts
+3. **(Optional) Add an AI Provider** — Enable AI transformations by adding an API key
+4. **Transform!** — Copy text, press your hotkey, done
+
+The built-in **Clean Terminal Text** transformation works immediately—no API key needed. To use **Format As Markdown** or create custom AI transformations, configure a provider in Settings.
+
+## AI Providers
+
+Optimus Clip supports multiple AI providers. Choose based on your needs:
+
+| Provider | Best For | Pricing |
+|----------|----------|---------|
+| **Anthropic** | Claude models, excellent for writing tasks | Pay per token |
+| **OpenAI** | GPT-4o, widely supported | Pay per token |
+| **OpenRouter** | Access 100+ models with one API key | Pay per token |
+| **Ollama** | Local models, complete privacy, no API costs | Free (runs locally) |
+| **AWS Bedrock** | Enterprise deployments, existing AWS infrastructure | Pay per token |
+
+### Anthropic (Claude)
+
+1. Get an API key at [console.anthropic.com](https://console.anthropic.com)
+2. Open Optimus Clip → Settings → Providers
+3. Paste your API key in the Anthropic section
+4. Models available: Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+
+### OpenAI (GPT-4)
+
+1. Get an API key at [platform.openai.com](https://platform.openai.com)
+2. Open Optimus Clip → Settings → Providers
+3. Paste your API key in the OpenAI section
+4. Models available: GPT-4o, GPT-4o mini, and more
+
+### OpenRouter
+
+Access Claude, GPT-4, Gemini, Llama, Mistral, and 100+ other models with a single API key.
+
+1. Get an API key at [openrouter.ai](https://openrouter.ai)
+2. Open Optimus Clip → Settings → Providers
+3. Paste your API key in the OpenRouter section
+4. Browse and select from all available models
+
+### Ollama (Local Models)
+
+Run models entirely on your machine—no API key, no costs, complete privacy.
+
+1. Install Ollama: [ollama.ai](https://ollama.ai)
+2. Pull a model: `ollama pull llama3.2` or `ollama pull gemma3`
+3. Open Optimus Clip → Settings → Providers
+4. Enable Ollama (defaults to `http://localhost:11434`)
+
+**Recommended local models:**
+- `llama3.2` — Good balance of speed and quality
+- `gemma3` — Google's efficient model, great for general tasks
+- `mistral` — Fast, great for simple transformations
+
+### AWS Bedrock
+
+For enterprise users with existing AWS infrastructure.
+
+1. Configure AWS credentials with Bedrock access
+2. Open Optimus Clip → Settings → Providers
+3. Enter your AWS region and credentials
+4. Access Claude, Llama, and other models via Bedrock
+
+## Creating Custom Transformations
+
+The real power of Optimus Clip is creating transformations tailored to your workflow.
+
+### Anatomy of a Transformation
+
+Each transformation has:
+- **Name** — What you'll see in the menu and history
+- **Hotkey** — The keyboard shortcut to trigger it
+- **System Prompt** — Instructions telling the AI what to do
+
+### Writing Effective Prompts
+
+The system prompt is sent to the AI along with your clipboard content. Be specific:
+
+**❌ Vague:**
+```
+Make this text better.
+```
+
+**✅ Specific:**
+```
+Fix grammar and spelling errors in the following text.
+Preserve the original meaning and tone.
+Do not add or remove content.
+Return only the corrected text with no explanation.
+```
+
+### Example Transformations
+
+<details>
+<summary><strong>Translate to Spanish</strong></summary>
+
+```
+Translate the following text to Spanish.
+Maintain the original formatting (paragraphs, lists, etc.).
+Return only the translation, no explanations.
+```
+</details>
+
+<details>
+<summary><strong>Summarize in 3 Bullets</strong></summary>
+
+```
+Summarize the following text in exactly 3 bullet points.
+Each bullet should be one sentence.
+Focus on the most important information.
+Return only the bullet points.
+```
+</details>
+
+<details>
+<summary><strong>Extract Article Content</strong></summary>
+
+```
+Extract the main article content from this webpage text.
+Remove navigation, ads, footers, and other non-content elements.
+Preserve headings and paragraph structure.
+Return only the article content in clean markdown.
+```
+</details>
+
+<details>
+<summary><strong>Explain Like I'm 5</strong></summary>
+
+```
+Explain the following text in simple terms a 5-year-old could understand.
+Use short sentences and common words.
+Include a simple analogy if helpful.
+```
+</details>
+
+### Tips
+
+- **End with "Return only..."** — Prevents the AI from adding explanations
+- **Be explicit about formatting** — "Return as markdown" or "Return as plain text"
+- **Test with the preview** — Use the test button in the transformation editor before saving
+
+## Development
+
+### Requirements
 
 - macOS 15.0+
-- Swift 6.0+
+- Xcode 16+ (for Swift 6.0)
+- Swift 6.0
 
-## Installation
+### Building
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/optimus-clip.git
+git clone https://github.com/chrisedwards/optimus-clip.git
 cd optimus-clip
 
 # Build and run
 make start
+
+# Or build only
+make build
 ```
 
-## Usage
-
-1. Launch Optimus Clip from the menu bar
-2. Copy text to your clipboard
-3. Press a configured hotkey to transform
-4. The transformed text is automatically pasted
-
-## Development
+### Development Commands
 
 ```bash
-# Build
-make build
-
-# Run tests
-make test
-
-# Format and lint
-make check
-
-# Package app bundle
-make package
+make check       # Run linting and format checks
+make test        # Run all tests
+make check-test  # Run both checks and tests
+make format      # Auto-format code
+make package     # Create .app bundle
+make stop        # Stop running instances
 ```
 
-See [CLAUDE.md](CLAUDE.md) for detailed development guidelines.
+### Project Structure
+
+```
+optimus-clip/
+├── Sources/
+│   ├── OptimusClip/           # Main app (UI, system integration)
+│   │   ├── Views/             # SwiftUI views
+│   │   ├── Managers/          # System managers (hotkeys, clipboard)
+│   │   ├── Services/          # LLM clients, history, settings
+│   │   └── Onboarding/        # First-run experience
+│   │
+│   └── OptimusClipCore/       # Shared library (testable, no UI)
+│       ├── Transformations/   # Transformation implementations
+│       ├── LLMClients/        # Provider protocols
+│       └── History/           # SwiftData models
+│
+├── Tests/                     # Unit tests
+├── Scripts/                   # Build automation
+└── assets/                    # App icons and images
+```
+
+### Architecture Notes
+
+- **Swift 6 Strict Concurrency** — All types are `Sendable`, async/await throughout
+- **Protocol-Oriented** — `Transformation` protocol for all transforms, `LLMProviderClient` for providers
+- **SwiftUI + AppKit Hybrid** — Menu bar with SwiftUI settings window
+
+See [AGENTS.md](AGENTS.md) for detailed development guidelines.
 
 ## License
 
