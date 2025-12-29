@@ -22,18 +22,34 @@ struct TransformationsTabView: View {
 
     /// Computed property to decode/encode transformations from storage.
     ///
-    /// Uses the same decode logic as TransformationConfig.loadFromStorage()
-    /// but reads from @AppStorage for SwiftUI reactivity.
+    /// Includes migration logic to ensure the built-in transformation exists
+    /// and has the correct `isBuiltIn` flag set.
     private var transformations: [TransformationConfig] {
         get {
             guard !self.transformationsData.isEmpty else {
                 return TransformationConfig.defaultTransformations
             }
-            return (try? JSONDecoder().decode([TransformationConfig].self, from: self.transformationsData))
-                ?? TransformationConfig.defaultTransformations
+            let decoder = JSONDecoder()
+            guard var loaded = try? decoder.decode([TransformationConfig].self, from: self.transformationsData) else {
+                return TransformationConfig.defaultTransformations
+            }
+
+            // Migration: ensure built-in Clean Terminal Text exists and has isBuiltIn flag
+            let builtInID = TransformationConfig.cleanTerminalTextDefaultID
+            if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
+                // Exists but may need isBuiltIn flag set (pre-update data)
+                if !loaded[index].isBuiltIn {
+                    loaded[index].isBuiltIn = true
+                }
+            } else {
+                // User deleted it before this update - re-add at beginning
+                loaded.insert(TransformationConfig.builtInCleanTerminalText, at: 0)
+            }
+
+            return loaded
         }
         nonmutating set {
-            TransformationConfig.saveToStorage(newValue)
+            self.transformationsData = (try? JSONEncoder().encode(newValue)) ?? Data()
         }
     }
 
