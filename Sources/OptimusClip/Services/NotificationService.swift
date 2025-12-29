@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import UserNotifications
 
 /// Categories for notification actions.
@@ -37,10 +38,18 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
     /// Shared notification service instance.
     public static let shared = NotificationService()
 
+    // MARK: - Dependencies
+
+    private let userDefaults: UserDefaults
+
     // MARK: - Configuration
 
     /// Whether to play system sound with notifications.
-    @Published public var playSoundOnError: Bool = true
+    /// Reads from the shared `soundEffectsEnabled` user setting.
+    public var playSoundOnError: Bool {
+        self.userDefaults.object(forKey: SettingsKey.soundEffectsEnabled) as? Bool
+            ?? DefaultSettings.soundEffectsEnabled
+    }
 
     /// Whether notifications are enabled.
     @Published public var notificationsEnabled: Bool = true
@@ -58,7 +67,12 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
 
     // MARK: - Initialization
 
-    override private init() {
+    override private convenience init() {
+        self.init(userDefaults: .standard)
+    }
+
+    private init(userDefaults: UserDefaults) {
+        self.userDefaults = userDefaults
         super.init()
         self.setupNotificationCategories()
         Task {
@@ -120,13 +134,13 @@ public final class NotificationService: NSObject, ObservableObject, UNUserNotifi
         do {
             // Guard against running without a proper app bundle
             guard Bundle.main.bundleIdentifier != nil else {
-                NSSound.beep()
+                SoundManager.shared.playBeep()
                 return
             }
             try await UNUserNotificationCenter.current().add(request)
         } catch {
             // Fall back to system beep if notification fails
-            NSSound.beep()
+            SoundManager.shared.playBeep()
         }
     }
 

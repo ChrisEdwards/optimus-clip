@@ -270,7 +270,7 @@ final class HotkeyManager: ObservableObject {
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
             logger.warning("Hotkey ignored - already processing")
-            NSSound.beep()
+            SoundManager.shared.playBeep()
             return
         }
 
@@ -286,7 +286,7 @@ final class HotkeyManager: ObservableObject {
                     .error(
                         "Format As Markdown failed: No LLM provider configured. Add API key in Settings > Providers."
                     )
-                NSSound.beep()
+                SoundManager.shared.playBeep()
                 return
             }
             self.flowCoordinator.pipeline = pipeline
@@ -364,7 +364,7 @@ final class HotkeyManager: ObservableObject {
     func triggerTransformation(_ transformation: TransformationConfig) async -> Bool {
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
-            NSSound.beep()
+            SoundManager.shared.playBeep()
             return false
         }
 
@@ -383,7 +383,7 @@ final class HotkeyManager: ObservableObject {
             // LLM transformations require provider configuration
             guard let pipeline = self.createLLMPipeline(for: transformation) else {
                 // LLM not configured - beep and abort
-                NSSound.beep()
+                SoundManager.shared.playBeep()
                 return false
             }
             self.flowCoordinator.pipeline = pipeline

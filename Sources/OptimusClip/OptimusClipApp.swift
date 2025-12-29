@@ -184,7 +184,7 @@ private struct TransformationMenuItem: View {
         let flowCoordinator = hotkeyManager.flowCoordinator
 
         guard !flowCoordinator.isProcessing else {
-            NSSound.beep()
+            SoundManager.shared.playBeep()
             return
         }
 
@@ -194,7 +194,7 @@ private struct TransformationMenuItem: View {
 
         case .llm:
             guard let pipeline = self.createLLMPipeline(for: self.transformation) else {
-                NSSound.beep()
+                SoundManager.shared.playBeep()
                 return
             }
             flowCoordinator.pipeline = pipeline

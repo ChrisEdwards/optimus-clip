@@ -1,19 +1,30 @@
 import AppKit
+import Foundation
 
 /// Manages sound effects for the application.
 ///
 /// Provides subtle audio feedback for paste operations.
 /// Uses system sounds by default but can be configured with custom sounds.
+///
+/// Reads the `soundEffectsEnabled` setting from UserDefaults to respect user preferences.
 @MainActor
 final class SoundManager {
     // MARK: - Singleton
 
     static let shared = SoundManager()
 
+    // MARK: - Dependencies
+
+    private let userDefaults: UserDefaults
+
     // MARK: - Configuration
 
-    /// Whether sounds are enabled. Defaults to true.
-    var soundsEnabled: Bool = true
+    /// Whether sounds are enabled based on user setting.
+    /// Reads from UserDefaults each time to stay in sync with Settings UI.
+    var soundsEnabled: Bool {
+        self.userDefaults.object(forKey: SettingsKey.soundEffectsEnabled) as? Bool
+            ?? DefaultSettings.soundEffectsEnabled
+    }
 
     /// Volume for sound effects (0.0 to 1.0). Defaults to 0.5 for subtlety.
     var volume: Float = 0.5
@@ -28,7 +39,9 @@ final class SoundManager {
 
     // MARK: - Initialization
 
-    private init() {}
+    private init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
 
     // MARK: - Public API
 
@@ -42,6 +55,14 @@ final class SoundManager {
     func playErrorSound() {
         guard self.soundsEnabled else { return }
         self.playSystemSound("Basso")
+    }
+
+    /// Plays the system beep sound, respecting the sound effects setting.
+    ///
+    /// Use this instead of calling `NSSound.beep()` directly.
+    func playBeep() {
+        guard self.soundsEnabled else { return }
+        NSSound.beep()
     }
 
     // MARK: - Private Methods
