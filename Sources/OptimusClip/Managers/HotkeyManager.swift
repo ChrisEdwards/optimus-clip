@@ -333,12 +333,17 @@ final class HotkeyManager: ObservableObject {
         let prompt = "Format the following text as clean, well-structured Markdown. " +
             "Use appropriate headers, lists, code blocks, and emphasis where applicable. " +
             "Fix any grammar or spelling issues while preserving the original meaning."
+
+        let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
+        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
+
         let transformation = LLMTransformation(
             id: "format-as-markdown-builtin",
             displayName: "Format As Markdown",
             providerClient: client,
             model: model,
-            systemPrompt: prompt
+            systemPrompt: prompt,
+            timeoutSeconds: effectiveTimeout
         )
         return TransformationPipeline.single(transformation, config: .llm)
     }
@@ -400,13 +405,17 @@ final class HotkeyManager: ObservableObject {
             return nil
         }
 
+        let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
+        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
+
         // Create the LLM transformation
         let llmTransformation = LLMTransformation(
             id: "llm-\(transformation.id.uuidString)",
             displayName: transformation.name,
             providerClient: resolved.client,
             model: resolved.resolution.model,
-            systemPrompt: transformation.systemPrompt
+            systemPrompt: transformation.systemPrompt,
+            timeoutSeconds: effectiveTimeout
         )
 
         // Wrap in a pipeline with LLM-appropriate timeout

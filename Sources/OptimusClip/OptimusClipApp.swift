@@ -218,12 +218,16 @@ private struct TransformationMenuItem: View {
             return nil
         }
 
+        let timeoutSeconds = UserDefaults.standard.double(forKey: SettingsKey.transformationTimeout)
+        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
+
         let llmTransformation = LLMTransformation(
             id: "llm-\(transformation.id.uuidString)",
             displayName: transformation.name,
             providerClient: client,
             model: model,
-            systemPrompt: transformation.systemPrompt
+            systemPrompt: transformation.systemPrompt,
+            timeoutSeconds: effectiveTimeout
         )
 
         return TransformationPipeline.single(llmTransformation, config: .llm)

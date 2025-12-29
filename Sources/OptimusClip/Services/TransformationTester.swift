@@ -55,12 +55,16 @@ struct TransformationTester {
             throw TransformationTestError.providerNotConfigured(resolution.provider.displayName)
         }
 
+        let timeoutSeconds = UserDefaults.standard.double(forKey: SettingsKey.transformationTimeout)
+        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
+
         let llmTransformation = LLMTransformation(
             id: "test-\(transformation.id.uuidString)",
             displayName: transformation.name,
             providerClient: client,
             model: resolution.model,
-            systemPrompt: transformation.systemPrompt
+            systemPrompt: transformation.systemPrompt,
+            timeoutSeconds: effectiveTimeout
         )
 
         return try await llmTransformation.transform(input)
