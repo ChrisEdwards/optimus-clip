@@ -161,10 +161,13 @@ final class HUDNotificationManager {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.isMovableByWindowBackground = false
+        panel.becomesKeyOnlyIfNeeded = true
 
         self.positionPanel(panel)
         panel.alphaValue = 0
-        panel.makeKeyAndOrderFront(nil)
+        // Use orderFront instead of makeKeyAndOrderFront to avoid stealing keyboard focus.
+        // The HUD should be visible but not interfere with paste simulation (Cmd+V).
+        panel.orderFront(nil)
 
         self.hudPanel = panel
         self.hostingController = controller

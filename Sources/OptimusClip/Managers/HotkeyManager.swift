@@ -437,6 +437,16 @@ final class HotkeyManager: ObservableObject {
         self.registeredShortcuts.count
     }
 
+    /// Returns the cached transformation configuration for a shortcut name.
+    ///
+    /// This is primarily for testing to verify cache updates are applied correctly.
+    ///
+    /// - Parameter name: The keyboard shortcut name to look up.
+    /// - Returns: The cached transformation, or nil if not found.
+    func getCachedTransformation(for name: KeyboardShortcuts.Name) -> TransformationConfig? {
+        self.transformationsByShortcut[name]
+    }
+
     // MARK: - Private Helpers
 
     /// Enables the shortcut immediately or schedules it once global listening resumes.

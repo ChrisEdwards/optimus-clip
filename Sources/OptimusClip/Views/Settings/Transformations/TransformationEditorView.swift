@@ -2,16 +2,6 @@ import KeyboardShortcuts
 import OptimusClipCore
 import SwiftUI
 
-// MARK: - Test State
-
-/// State of the transformation test execution.
-enum TransformationTestState: Equatable {
-    case idle
-    case running
-    case success(duration: TimeInterval)
-    case error(message: String)
-}
-
 // MARK: - Editor View
 
 /// Detail editor for a single transformation configuration.
@@ -32,17 +22,6 @@ struct TransformationEditorView: View {
 
     /// Whether to show the "use anyway" confirmation for system/common conflicts.
     @State private var showUseAnywayConfirmation = false
-
-    // MARK: - Test Mode State
-
-    /// Input text for testing the transformation.
-    @State private var testInput: String = ""
-
-    /// Output from the test run.
-    @State private var testOutput: String = ""
-
-    /// Current state of test execution.
-    @State private var testState: TransformationTestState = .idle
 
     // MARK: - Model Selection State
 
@@ -116,104 +95,16 @@ struct TransformationEditorView: View {
                 }
             }
 
-            // Test Mode Section
-            Section("Test Transformation") {
-                VStack(alignment: .leading, spacing: 12) {
-                    // Input area
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Input")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        TextEditor(text: self.$testInput)
-                            .font(.system(.body, design: .monospaced))
-                            .frame(minHeight: 60, maxHeight: 100)
-                            .border(Color.secondary.opacity(0.3))
-                    }
-
-                    // Run button and status
-                    HStack {
-                        Button {
-                            Task {
-                                await self.runTest()
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                if self.testState == .running {
-                                    ProgressView()
-                                        .controlSize(.small)
-                                } else {
-                                    Image(systemName: "play.fill")
-                                }
-                                Text("Run Test")
-                            }
-                        }
-                        .disabled(self.testInput.isEmpty || self.testState == .running)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-
-                        Spacer()
-
-                        // Status indicator
-                        self.testStatusView
-                    }
-
-                    // Output area (only show if there's output)
-                    if !self.testOutput.isEmpty || self.testState == .running {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Output")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            if self.testState == .running {
-                                HStack {
-                                    Spacer()
-                                    ProgressView("Running transformation...")
-                                    Spacer()
-                                }
-                                .frame(minHeight: 60)
-                            } else {
-                                TextEditor(text: .constant(self.testOutput))
-                                    .font(.system(.body, design: .monospaced))
-                                    .frame(minHeight: 60, maxHeight: 100)
-                                    .border(Color.secondary.opacity(0.3))
-                            }
-                        }
-                    }
-                }
-            }
+            TransformationTestSection(transformation: self.transformation)
         }
         .formStyle(.grouped)
         .padding()
-    }
-
-    // MARK: - Test Status View
-
-    @ViewBuilder
-    private var testStatusView: some View {
-        switch self.testState {
-        case .idle:
-            EmptyView()
-        case .running:
-            Text("Running...")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        case let .success(duration):
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                Text(String(format: "%.2fs", duration))
-            }
-            .font(.caption)
-        case let .error(message):
-            HStack(spacing: 4) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.red)
-                Text(message)
-                    .lineLimit(1)
-            }
-            .font(.caption)
-            .help(message)
+        .onChange(of: self.transformation) { _, newValue in
+            // Explicitly sync HotkeyManager cache when transformation changes.
+            // This ensures the cache is updated even if SwiftUI's derived binding
+            // for nested properties (like systemPrompt) doesn't trigger the parent
+            // binding's setter reliably.
+            HotkeyManager.shared.updateTransformation(newValue)
         }
     }
 
@@ -398,35 +289,6 @@ struct TransformationEditorView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 KeyboardShortcuts.reset(self.transformation.shortcutName)
             }
-        }
-    }
-
-    // MARK: - Test Execution
-
-    /// Runs the transformation on test input and displays the result.
-    @MainActor
-    private func runTest() async {
-        guard !self.testInput.isEmpty else { return }
-
-        // Capture values before async work
-        let transformationSnapshot = self.transformation
-        let inputSnapshot = self.testInput
-
-        let startTime = Date()
-        self.testState = .running
-        self.testOutput = ""
-
-        do {
-            let tester = TransformationTester()
-            let output = try await tester.runTest(
-                transformation: transformationSnapshot,
-                input: inputSnapshot
-            )
-            let duration = Date().timeIntervalSince(startTime)
-            self.testOutput = output
-            self.testState = .success(duration: duration)
-        } catch {
-            self.testState = .error(message: error.localizedDescription)
         }
     }
 }
