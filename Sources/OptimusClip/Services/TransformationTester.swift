@@ -7,13 +7,16 @@ import OptimusClipCore
 struct TransformationTester {
     private let modelResolver: ModelResolver
     private let providerFactory: LLMProviderClientFactory
+    private let userDefaults: UserDefaults
 
     init(
         modelResolver: ModelResolver = ModelResolver(),
-        providerFactory: LLMProviderClientFactory = LLMProviderClientFactory()
+        providerFactory: LLMProviderClientFactory = LLMProviderClientFactory(),
+        userDefaults: UserDefaults = .standard
     ) {
         self.modelResolver = modelResolver
         self.providerFactory = providerFactory
+        self.userDefaults = userDefaults
     }
 
     /// Runs a transformation test and returns the result.
@@ -55,7 +58,7 @@ struct TransformationTester {
             throw TransformationTestError.providerNotConfigured(resolution.provider.displayName)
         }
 
-        let timeoutSeconds = UserDefaults.standard.double(forKey: SettingsKey.transformationTimeout)
+        let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
         let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
 
         let llmTransformation = LLMTransformation(
