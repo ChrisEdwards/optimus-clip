@@ -79,6 +79,10 @@ protocol KeychainService: Sendable {
 
 /// Type-safe wrapper for macOS Keychain Services
 /// Thread-safe singleton that provides a clean Swift API for credential storage
+/// @unchecked Sendable justified because:
+/// - Security framework calls are documented as thread-safe
+/// - Class holds no mutable instance state; methods are pure operations
+/// - Singleton only stores static constants
 final class KeychainWrapper: KeychainService, @unchecked Sendable {
     // Singleton is safe because underlying Security APIs are thread-safe
     // and this class holds no mutable state
@@ -356,6 +360,9 @@ extension KeychainWrapper {
 // MARK: - MockKeychainService
 
 /// Mock implementation of KeychainService for testing
+/// @unchecked Sendable justified because:
+/// - Access synchronized via NSLock protecting all mutable state
+/// - Used only in tests; no shared global references
 final class MockKeychainService: KeychainService, @unchecked Sendable {
     private var storage: [String: String] = [:]
     private let lock = NSLock()

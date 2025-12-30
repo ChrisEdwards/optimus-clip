@@ -12,9 +12,9 @@ private let migrationLogger = Logger(subsystem: "com.optimusclip", category: "En
 ///
 /// ## Sendable Justification
 /// Marked `@unchecked Sendable` because:
-/// - `UserDefaults` is documented as thread-safe by Apple
+/// - `UserDefaults` is documented as thread-safe for concurrent access
 /// - `SymmetricKey` values are immutable after initialization
-/// - All stored properties are either thread-safe or immutable
+/// - Stored properties are immutable or thread-safe; no shared mutable state across actors
 final class EncryptedStorageService: KeychainService, @unchecked Sendable {
     static let shared = EncryptedStorageService()
 

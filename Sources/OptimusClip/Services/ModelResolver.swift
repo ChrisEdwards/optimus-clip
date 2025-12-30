@@ -11,7 +11,7 @@ import OptimusClipCore
 /// ## Sendable Justification
 /// Marked `@unchecked Sendable` because:
 /// - `UserDefaults` is documented as thread-safe by Apple
-/// - All stored properties are immutable after initialization
+/// - Stored property is immutable after initialization
 /// - Only performs read-only access to UserDefaults
 struct ModelResolver: @unchecked Sendable {
     enum Source: String, Sendable {
