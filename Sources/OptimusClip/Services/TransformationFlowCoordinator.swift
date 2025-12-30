@@ -51,7 +51,7 @@ public final class TransformationFlowCoordinator: ObservableObject {
     // MARK: - Configuration
 
     /// Timeout duration for transformation operations (especially LLM calls).
-    public var transformationTimeout: TimeInterval = 30.0
+    public var transformationTimeout: TimeInterval = 90.0
 
     /// Delay after clipboard write before simulating paste.
     /// Allows clipboard to settle for apps that read clipboard asynchronously.

@@ -103,7 +103,7 @@ enum DefaultSettings {
     // General
     static let launchAtLogin = false
     static let soundEffectsEnabled = true
-    static let transformationTimeout = 30.0
+    static let transformationTimeout = 90.0
     static let historyEntryLimit = 100
     static let hotkeyListeningEnabled = true
 

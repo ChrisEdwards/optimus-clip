@@ -48,7 +48,7 @@ struct TransformationTimeoutTests {
         let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
 
         #expect(effectiveTimeout == DefaultSettings.transformationTimeout)
-        #expect(effectiveTimeout == 30.0) // Verify the actual default value
+        #expect(effectiveTimeout == 90.0) // Verify the actual default value
     }
 
     @Test("respects all timeout picker options")

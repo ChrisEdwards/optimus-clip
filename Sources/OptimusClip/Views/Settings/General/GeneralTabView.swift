@@ -16,7 +16,7 @@ private let logger = Logger(subsystem: "com.optimusclip", category: "GeneralSett
 struct GeneralTabView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
-    @AppStorage("transformationTimeout") private var transformationTimeout = 30.0
+    @AppStorage("transformationTimeout") private var transformationTimeout = 90.0
 
     @State private var loginItemStatus: SMAppService.Status = .notRegistered
 
