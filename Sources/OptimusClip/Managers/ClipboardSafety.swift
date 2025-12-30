@@ -119,14 +119,14 @@ public enum ClipboardSafety {
             return .empty
         }
 
-        // Check for binary types FIRST (they should block processing)
-        if let binaryType = types.first(where: { self.binaryTypes.contains($0) }) {
-            return .binary(type: binaryType.rawValue)
-        }
-
         // Check for text types
         if types.contains(where: { self.textTypes.contains($0) }) {
             return .text
+        }
+
+        // Check for binary types after text so URLs with string fall through to text
+        if let binaryType = types.first(where: { self.binaryTypes.contains($0) }) {
+            return .binary(type: binaryType.rawValue)
         }
 
         return .unknown
