@@ -31,8 +31,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         }
 
         let startTime = Date()
-        var urlRequest = try self.buildRequest(request)
-        try self.applyAuthentication(to: &urlRequest)
+        let urlRequest = try self.makeSignedRequest(request)
 
         let data: Data
         let response: URLResponse
@@ -49,6 +48,11 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
     }
 
     // MARK: - Helpers
+
+    func makeSignedRequest(_ request: LLMRequest) throws -> URLRequest {
+        let baseRequest = try self.buildRequest(request)
+        return try self.applyAuthentication(to: baseRequest)
+    }
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
         guard let url = self.buildConverseURL(modelId: request.model, region: self.region) else {
@@ -89,14 +93,24 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         return URL(string: "https://\(host)\(path)")
     }
 
-    private func applyAuthentication(to request: inout URLRequest) throws {
+    private func applyAuthentication(to request: URLRequest) throws -> URLRequest {
         switch self.credentials {
         case let .bearer(token):
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        case .sigV4:
-            // SigV4 signing requires complex HMAC-SHA256 computation that is not yet implemented.
-            // Users should use bearer token authentication via AWS IAM Identity Center instead.
-            throw LLMProviderError.authenticationError
+            var authenticated = request
+            authenticated.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            return authenticated
+        case let .sigV4(accessKey, secretKey):
+            do {
+                return try AWSSigner.signRequest(
+                    request: request,
+                    accessKey: accessKey,
+                    secretKey: secretKey,
+                    region: self.region,
+                    service: "bedrock"
+                )
+            } catch AWSSignerError.invalidEndpoint {
+                throw LLMProviderError.invalidResponse("Invalid AWS Bedrock endpoint")
+            }
         }
     }
 
@@ -177,21 +191,7 @@ private enum BedrockCredentials: Sendable {
     case sigV4(accessKey: String, secretKey: String)
     case bearer(token: String)
 
-    /// Returns true only for credential types that are fully implemented AND have values.
-    /// SigV4 signing is not yet implemented, so sigV4 credentials return false even when populated.
     var isConfiguredAndSupported: Bool {
-        switch self {
-        case .sigV4:
-            // SigV4 signing is not implemented - users must use bearer token authentication
-            false
-        case let .bearer(token):
-            !token.isEmpty
-        }
-    }
-
-    /// Returns true if credentials have been provided, regardless of implementation support.
-    /// Use this to detect when a user has entered credentials but they aren't supported.
-    var hasCredentials: Bool {
         switch self {
         case let .sigV4(accessKey, secretKey):
             !accessKey.isEmpty && !secretKey.isEmpty

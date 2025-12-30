@@ -1,5 +1,4 @@
 // swiftlint:disable file_length
-import CommonCrypto
 import Foundation
 
 // MARK: - AWS Bedrock Validator
@@ -100,12 +99,11 @@ enum BedrockValidator {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 30
 
-        let signedRequest = try AWSSigner.signRequest(
-            request: request,
+        let signedRequest = try self.signRequest(
+            request,
             accessKey: accessKey,
             secretKey: secretKey,
-            region: region,
-            service: "bedrock"
+            region: region
         )
 
         let (data, response) = try await URLSession.shared.data(for: signedRequest)
@@ -154,6 +152,86 @@ enum BedrockValidator {
         )
     }
 
+    private static func testConnection(
+        accessKey: String,
+        secretKey: String,
+        region: String,
+        modelId: String
+    ) async throws -> String {
+        let profileId = InferenceProfileHelper.profileId(for: modelId, region: region)
+        let encodedModelId = profileId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? profileId
+        let host = "bedrock-runtime.\(region).amazonaws.com"
+        let path = "/model/\(encodedModelId)/invoke"
+
+        guard let url = URL(string: "https://\(host)\(path)") else {
+            throw BedrockValidationError.invalidEndpoint
+        }
+
+        let requestBody = self.buildRequestBody(for: modelId)
+        let bodyData = try JSONSerialization.data(withJSONObject: requestBody)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = bodyData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 30
+
+        // Sign request with AWS Signature V4
+        let signedRequest = try self.signRequest(
+            request,
+            accessKey: accessKey,
+            secretKey: secretKey,
+            region: region
+        )
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: signedRequest)
+            return try self.parseResponse(data: data, response: response, region: region)
+        } catch let error as BedrockValidationError {
+            throw error
+        } catch {
+            throw self.mapError(error)
+        }
+    }
+
+    private static func testConnectionWithBearerToken(
+        bearerToken: String,
+        region: String,
+        modelId: String
+    ) async throws -> String {
+        let profileId = InferenceProfileHelper.profileId(for: modelId, region: region)
+        let encodedModelId = profileId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? profileId
+        let host = "bedrock-runtime.\(region).amazonaws.com"
+        let path = "/model/\(encodedModelId)/invoke"
+
+        guard let url = URL(string: "https://\(host)\(path)") else {
+            throw BedrockValidationError.invalidEndpoint
+        }
+
+        let requestBody = self.buildRequestBody(for: modelId)
+        let bodyData = try JSONSerialization.data(withJSONObject: requestBody)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = bodyData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            return try self.parseResponse(data: data, response: response, region: region)
+        } catch let error as BedrockValidationError {
+            throw error
+        } catch {
+            throw self.mapError(error)
+        }
+    }
+}
+
+extension BedrockValidator {
     private static func parseModelsResponse(data: Data) throws -> [BedrockModel] {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let modelSummaries = json["modelSummaries"] as? [[String: Any]] else {
@@ -228,86 +306,26 @@ enum BedrockValidator {
 
     // MARK: - API Test
 
-    private static func testConnection(
+    private static func signRequest(
+        _ request: URLRequest,
         accessKey: String,
         secretKey: String,
         region: String,
-        modelId: String
-    ) async throws -> String {
-        let profileId = InferenceProfileHelper.profileId(for: modelId, region: region)
-        let encodedModelId = profileId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? profileId
-        let host = "bedrock-runtime.\(region).amazonaws.com"
-        let path = "/model/\(encodedModelId)/invoke"
-
-        guard let url = URL(string: "https://\(host)\(path)") else {
-            throw BedrockValidationError.invalidEndpoint
-        }
-
-        let requestBody = self.buildRequestBody(for: modelId)
-        let bodyData = try JSONSerialization.data(withJSONObject: requestBody)
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.httpBody = bodyData
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30
-
-        // Sign request with AWS Signature V4
-        let signedRequest = try AWSSigner.signRequest(
-            request: request,
-            accessKey: accessKey,
-            secretKey: secretKey,
-            region: region,
-            service: "bedrock"
-        )
-
+        service: String = "bedrock"
+    ) throws -> URLRequest {
         do {
-            let (data, response) = try await URLSession.shared.data(for: signedRequest)
-            return try self.parseResponse(data: data, response: response, region: region)
-        } catch let error as BedrockValidationError {
-            throw error
-        } catch {
-            throw self.mapError(error)
+            return try AWSSigner.signRequest(
+                request: request,
+                accessKey: accessKey,
+                secretKey: secretKey,
+                region: region,
+                service: service
+            )
+        } catch AWSSignerError.invalidEndpoint {
+            throw BedrockValidationError.invalidEndpoint
         }
     }
 
-    private static func testConnectionWithBearerToken(
-        bearerToken: String,
-        region: String,
-        modelId: String
-    ) async throws -> String {
-        let profileId = InferenceProfileHelper.profileId(for: modelId, region: region)
-        let encodedModelId = profileId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? profileId
-        let host = "bedrock-runtime.\(region).amazonaws.com"
-        let path = "/model/\(encodedModelId)/invoke"
-
-        guard let url = URL(string: "https://\(host)\(path)") else {
-            throw BedrockValidationError.invalidEndpoint
-        }
-
-        let requestBody = self.buildRequestBody(for: modelId)
-        let bodyData = try JSONSerialization.data(withJSONObject: requestBody)
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.httpBody = bodyData
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 30
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            return try self.parseResponse(data: data, response: response, region: region)
-        } catch let error as BedrockValidationError {
-            throw error
-        } catch {
-            throw self.mapError(error)
-        }
-    }
-
-    /// Builds the appropriate request body based on the model provider.
     private static func buildRequestBody(for modelId: String) -> [String: Any] {
         let provider = ModelRequestFormat.detect(from: modelId)
         return provider.requestBody
@@ -390,173 +408,6 @@ enum BedrockValidator {
             }
         }
         return .apiError(error.localizedDescription)
-    }
-}
-
-// MARK: - AWS Signature V4
-
-private enum AWSSigner {
-    static func signRequest(
-        request: URLRequest,
-        accessKey: String,
-        secretKey: String,
-        region: String,
-        service: String
-    ) throws -> URLRequest {
-        var signedRequest = request
-
-        guard let url = request.url, let host = url.host else {
-            throw BedrockValidationError.invalidEndpoint
-        }
-
-        let now = Date()
-        let amzDate = self.amzDateString(from: now)
-        let dateStamp = self.dateStampString(from: now)
-
-        signedRequest.setValue(host, forHTTPHeaderField: "Host")
-        signedRequest.setValue(amzDate, forHTTPHeaderField: "X-Amz-Date")
-
-        let bodyHash = self.sha256Hash(data: request.httpBody ?? Data())
-        let canonicalRequest = self.buildCanonicalRequest(
-            request: request,
-            url: url,
-            host: host,
-            amzDate: amzDate,
-            bodyHash: bodyHash
-        )
-        let stringToSign = self.buildStringToSign(
-            amzDate: amzDate,
-            dateStamp: dateStamp,
-            region: region,
-            service: service,
-            canonicalRequest: canonicalRequest
-        )
-
-        let signature = self.calculateSignature(
-            secretKey: secretKey,
-            dateStamp: dateStamp,
-            region: region,
-            service: service,
-            stringToSign: stringToSign
-        )
-        let authorization = self.buildAuthorizationHeader(
-            accessKey: accessKey,
-            dateStamp: dateStamp,
-            region: region,
-            service: service,
-            signature: signature
-        )
-        signedRequest.setValue(authorization, forHTTPHeaderField: "Authorization")
-
-        return signedRequest
-    }
-
-    private static func buildCanonicalRequest(
-        request: URLRequest,
-        url: URL,
-        host: String,
-        amzDate: String,
-        bodyHash: String
-    ) -> String {
-        let canonicalHeaders = "host:\(host)\nx-amz-date:\(amzDate)\n"
-        return [
-            request.httpMethod ?? "POST",
-            url.path,
-            url.query ?? "",
-            canonicalHeaders,
-            "host;x-amz-date",
-            bodyHash
-        ].joined(separator: "\n")
-    }
-
-    private static func buildStringToSign(
-        amzDate: String,
-        dateStamp: String,
-        region: String,
-        service: String,
-        canonicalRequest: String
-    ) -> String {
-        let credentialScope = "\(dateStamp)/\(region)/\(service)/aws4_request"
-        return [
-            "AWS4-HMAC-SHA256",
-            amzDate,
-            credentialScope,
-            self.sha256Hash(string: canonicalRequest)
-        ].joined(separator: "\n")
-    }
-
-    private static func calculateSignature(
-        secretKey: String,
-        dateStamp: String,
-        region: String,
-        service: String,
-        stringToSign: String
-    ) -> String {
-        let signingKey = self.getSignatureKey(key: secretKey, dateStamp: dateStamp, region: region, service: service)
-        return self.hmacSHA256(key: signingKey, data: Data(stringToSign.utf8)).hexString
-    }
-
-    private static func buildAuthorizationHeader(
-        accessKey: String,
-        dateStamp: String,
-        region: String,
-        service: String,
-        signature: String
-    ) -> String {
-        let credentialScope = "\(dateStamp)/\(region)/\(service)/aws4_request"
-        return "AWS4-HMAC-SHA256 Credential=\(accessKey)/\(credentialScope), " +
-            "SignedHeaders=host;x-amz-date, Signature=\(signature)"
-    }
-
-    private static func amzDateString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter.string(from: date)
-    }
-
-    private static func dateStampString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter.string(from: date)
-    }
-
-    private static func sha256Hash(string: String) -> String {
-        self.sha256Hash(data: Data(string.utf8))
-    }
-
-    private static func sha256Hash(data: Data) -> String {
-        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        data.withUnsafeBytes {
-            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &hash)
-        }
-        return hash.map { String(format: "%02x", $0) }.joined()
-    }
-
-    private static func hmacSHA256(key: Data, data: Data) -> Data {
-        var hash = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
-        key.withUnsafeBytes { keyPtr in
-            data.withUnsafeBytes { dataPtr in
-                CCHmac(
-                    CCHmacAlgorithm(kCCHmacAlgSHA256),
-                    keyPtr.baseAddress,
-                    key.count,
-                    dataPtr.baseAddress,
-                    data.count,
-                    &hash
-                )
-            }
-        }
-        return Data(hash)
-    }
-
-    private static func getSignatureKey(key: String, dateStamp: String, region: String, service: String) -> Data {
-        let kDate = self.hmacSHA256(key: Data("AWS4\(key)".utf8), data: Data(dateStamp.utf8))
-        let kRegion = self.hmacSHA256(key: kDate, data: Data(region.utf8))
-        let kService = self.hmacSHA256(key: kRegion, data: Data(service.utf8))
-        let kSigning = self.hmacSHA256(key: kService, data: Data("aws4_request".utf8))
-        return kSigning
     }
 }
 
@@ -692,12 +543,6 @@ struct BedrockModel: Identifiable, Hashable {
 private struct AWSCredentials {
     let accessKey: String
     let secretKey: String
-}
-
-extension Data {
-    fileprivate var hexString: String {
-        self.map { String(format: "%02x", $0) }.joined()
-    }
 }
 
 /// Errors that can occur during AWS Bedrock credential validation.
