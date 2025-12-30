@@ -22,16 +22,16 @@ struct TransformationsTabView: View {
 
     /// Computed property to decode/encode transformations from storage.
     ///
-        /// Includes migration logic to ensure the built-in transformation exists
-        /// and has the correct `isBuiltIn` flag set.
-        private var transformations: [TransformationConfig] {
-            get {
-                (try? TransformationConfig.decodeStoredTransformations(from: self.transformationsData)) ?? []
-            }
-            nonmutating set {
-                self.transformationsData = (try? JSONEncoder().encode(newValue)) ?? Data()
-            }
+    /// Includes migration logic to ensure the built-in transformation exists
+    /// and has the correct `isBuiltIn` flag set.
+    private var transformations: [TransformationConfig] {
+        get {
+            (try? TransformationConfig.decodeStoredTransformations(from: self.transformationsData)) ?? []
         }
+        nonmutating set {
+            self.transformationsData = (try? JSONEncoder().encode(newValue)) ?? Data()
+        }
+    }
 
     var body: some View {
         HSplitView {

@@ -78,52 +78,52 @@ struct OptimusClipApp: App {
 // MARK: - Menu Bar Menu Content
 
 /// Content view for the menu bar dropdown menu.
-    private struct MenuBarMenuContent: View {
-        @ObservedObject var updaterWrapper: UpdaterWrapper
-        @Environment(\.openSettings) private var openSettings
-        @AppStorage("transformations_data") private var transformationsData: Data = .init()
+private struct MenuBarMenuContent: View {
+    @ObservedObject var updaterWrapper: UpdaterWrapper
+    @Environment(\.openSettings) private var openSettings
+    @AppStorage("transformations_data") private var transformationsData: Data = .init()
 
-        private var transformationsResult: Result<[TransformationConfig], Error> {
-            do {
-                let decoded = try TransformationConfig.decodeStoredTransformations(from: self.transformationsData)
-                return .success(decoded)
-            } catch {
-                return .failure(error)
+    private var transformationsResult: Result<[TransformationConfig], Error> {
+        do {
+            let decoded = try TransformationConfig.decodeStoredTransformations(from: self.transformationsData)
+            return .success(decoded)
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private var transformations: [TransformationConfig] {
+        switch self.transformationsResult {
+        case let .success(value):
+            value
+        case .failure:
+            []
+        }
+    }
+
+    private var enabledTransformations: [TransformationConfig] {
+        self.transformations.filter(\.isEnabled)
+    }
+
+    var body: some View {
+        TransformationsSubmenu(
+            enabledTransformations: self.enabledTransformations,
+            openSettings: self.openSettings
+        )
+
+        if case .failure = self.transformationsResult {
+            Text("Transformations unavailable")
+                .foregroundStyle(.red)
+            Button("Open Settings...") {
+                NSApp.activate(ignoringOtherApps: true)
+                self.openSettings()
             }
         }
 
-        private var transformations: [TransformationConfig] {
-            switch self.transformationsResult {
-            case let .success(value):
-                value
-            case .failure:
-                []
-            }
-        }
+        Divider()
 
-        private var enabledTransformations: [TransformationConfig] {
-            self.transformations.filter(\.isEnabled)
-        }
-
-        var body: some View {
-            TransformationsSubmenu(
-                enabledTransformations: self.enabledTransformations,
-                openSettings: self.openSettings
-            )
-
-            if case .failure = self.transformationsResult {
-                Text("Transformations unavailable")
-                    .foregroundStyle(.red)
-                Button("Open Settings...") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    self.openSettings()
-                }
-            }
-
-            Divider()
-
-            // Only show "Check for Updates" if Sparkle is enabled (production builds)
-            if self.updaterWrapper.canCheckForUpdates {
+        // Only show "Check for Updates" if Sparkle is enabled (production builds)
+        if self.updaterWrapper.canCheckForUpdates {
             Button("Check for Updates...") {
                 self.updaterWrapper.checkForUpdates()
             }

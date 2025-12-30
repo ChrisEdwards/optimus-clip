@@ -67,7 +67,7 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
             messages: [BedrockMessage(role: "user", content: [BedrockContent(text: request.text)])],
             inferenceConfig: BedrockInferenceConfig(
                 temperature: request.temperature,
-                maxTokens: request.maxTokens ?? 4096
+                maxTokens: request.maxTokens ?? 12000
             )
         )
         urlRequest.httpBody = try JSONEncoder().encode(body)

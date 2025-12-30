@@ -56,7 +56,7 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
 
         let body = AnthropicMessagesRequest(
             model: request.model,
-            maxTokens: request.maxTokens ?? 4096,
+            maxTokens: request.maxTokens ?? 12000,
             system: request.systemPrompt,
             messages: [AnthropicMessage(role: "user", content: request.text)],
             temperature: request.temperature

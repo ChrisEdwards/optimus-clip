@@ -48,9 +48,9 @@ public struct LLMRequest: Sendable {
         text: String,
         systemPrompt: String,
         temperature: Double = 0.7,
-        maxTokens: Int? = 4096,
+        maxTokens: Int? = 12000,
         requestID: UUID = UUID(),
-        timeout: TimeInterval = 30
+        timeout: TimeInterval = 90
     ) {
         self.provider = provider
         self.model = model

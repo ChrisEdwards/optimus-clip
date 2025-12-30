@@ -21,8 +21,8 @@ public struct LLMTransformation: Transformation {
         model: String,
         systemPrompt: String,
         temperature: Double = 0.7,
-        maxTokens: Int? = 4096,
-        timeoutSeconds: TimeInterval = 30,
+        maxTokens: Int? = 12000,
+        timeoutSeconds: TimeInterval = 90,
         contentLimitBytes: Int = 200_000
     ) {
         self.id = id
