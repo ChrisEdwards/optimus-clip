@@ -66,7 +66,7 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Initialization
 
-    private init(userDefaults: UserDefaults = .standard) {
+    init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
         if let stored = userDefaults.object(forKey: SettingsKey.hotkeyListeningEnabled) as? Bool {
             self.hotkeyListeningEnabled = stored
@@ -266,6 +266,7 @@ final class HotkeyManager: ObservableObject {
     /// - Parameter name: The KeyboardShortcuts.Name that was triggered.
     private func handleBuiltInHotkey(_ name: KeyboardShortcuts.Name) async {
         logger.info("Built-in hotkey triggered: \(name.rawValue)")
+        self.flowCoordinator.transformationTimeout = self.currentTimeout()
 
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
@@ -309,6 +310,12 @@ final class HotkeyManager: ObservableObject {
     private func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
         let factory = LLMProviderClientFactory()
 
+        if let stored = self.formatAsMarkdownTransformation(),
+           let pipeline = self.createLLMPipeline(for: stored) {
+            logger.info("Using stored Format As Markdown transformation")
+            return pipeline
+        }
+
         // Try the default provider (Anthropic) first
         if let client = try? factory.client(for: .anthropic), client.isConfigured() {
             logger.info("Using Anthropic for Format As Markdown")
@@ -348,6 +355,40 @@ final class HotkeyManager: ObservableObject {
         return TransformationPipeline.single(transformation, config: .llm)
     }
 
+    /// Loads the stored Format As Markdown transformation (if available).
+    ///
+    /// Uses persisted transformations so user edits (prompt/provider/model) are honored.
+    func formatAsMarkdownTransformation() -> TransformationConfig? {
+        guard let transformations = self.loadPersistedTransformations() else {
+            return nil
+        }
+
+        return transformations.first { $0.id == TransformationConfig.formatAsMarkdownDefaultID }
+    }
+
+    private func transformationFromStorage(id: UUID) -> TransformationConfig? {
+        guard let transformations = self.loadPersistedTransformations() else {
+            return nil
+        }
+        return transformations.first { $0.id == id }
+    }
+
+    private func loadPersistedTransformations() -> [TransformationConfig]? {
+        let data = self.userDefaults.data(forKey: SettingsKey.transformationsData)
+        do {
+            return try TransformationConfig.decodeStoredTransformations(from: data)
+        } catch {
+            logger.error("Failed to decode transformations_data for hotkeys: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func currentTimeout() -> TimeInterval {
+        let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
+        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
+        return effectiveTimeout
+    }
+
     /// Returns a reasonable default model for the given provider.
     private static func defaultModel(for provider: LLMProviderKind) -> String {
         ModelResolver.fallbackModel(for: provider) ?? "gpt-4o-mini"
@@ -362,6 +403,8 @@ final class HotkeyManager: ObservableObject {
     /// - Returns: `true` if transformation was triggered, `false` if blocked.
     @discardableResult
     func triggerTransformation(_ transformation: TransformationConfig) async -> Bool {
+        self.flowCoordinator.transformationTimeout = self.currentTimeout()
+
         // Prevent duplicate execution
         guard !self.flowCoordinator.isProcessing else {
             SoundManager.shared.playBeep()
@@ -373,15 +416,23 @@ final class HotkeyManager: ObservableObject {
             return false
         }
 
+        var effectiveTransformation = transformation
+        if transformation.type == .llm,
+           let persisted = self.transformationFromStorage(id: transformation.id) {
+            effectiveTransformation = persisted
+            // Keep cache aligned with latest persisted data
+            self.transformationsByShortcut[transformation.shortcutName] = persisted
+        }
+
         // Configure pipeline based on transformation type
-        switch transformation.type {
+        switch effectiveTransformation.type {
         case .algorithmic:
             // Algorithmic transformations use the cleanTerminalText pipeline
             self.flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
 
         case .llm:
             // LLM transformations require provider configuration
-            guard let pipeline = self.createLLMPipeline(for: transformation) else {
+            guard let pipeline = self.createLLMPipeline(for: effectiveTransformation) else {
                 // LLM not configured - beep and abort
                 SoundManager.shared.playBeep()
                 return false

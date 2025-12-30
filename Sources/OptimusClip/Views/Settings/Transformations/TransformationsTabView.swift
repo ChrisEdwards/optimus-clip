@@ -22,36 +22,16 @@ struct TransformationsTabView: View {
 
     /// Computed property to decode/encode transformations from storage.
     ///
-    /// Includes migration logic to ensure the built-in transformation exists
-    /// and has the correct `isBuiltIn` flag set.
-    private var transformations: [TransformationConfig] {
-        get {
-            guard !self.transformationsData.isEmpty else {
-                return TransformationConfig.defaultTransformations
+        /// Includes migration logic to ensure the built-in transformation exists
+        /// and has the correct `isBuiltIn` flag set.
+        private var transformations: [TransformationConfig] {
+            get {
+                (try? TransformationConfig.decodeStoredTransformations(from: self.transformationsData)) ?? []
             }
-            let decoder = JSONDecoder()
-            guard var loaded = try? decoder.decode([TransformationConfig].self, from: self.transformationsData) else {
-                return TransformationConfig.defaultTransformations
+            nonmutating set {
+                self.transformationsData = (try? JSONEncoder().encode(newValue)) ?? Data()
             }
-
-            // Migration: ensure built-in Clean Terminal Text exists and has isBuiltIn flag
-            let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-            if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
-                // Exists but may need isBuiltIn flag set (pre-update data)
-                if !loaded[index].isBuiltIn {
-                    loaded[index].isBuiltIn = true
-                }
-            } else {
-                // User deleted it before this update - re-add at beginning
-                loaded.insert(TransformationConfig.builtInCleanTerminalText, at: 0)
-            }
-
-            return loaded
         }
-        nonmutating set {
-            self.transformationsData = (try? JSONEncoder().encode(newValue)) ?? Data()
-        }
-    }
 
     var body: some View {
         HSplitView {

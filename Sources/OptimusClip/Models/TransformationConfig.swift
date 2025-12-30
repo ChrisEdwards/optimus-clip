@@ -148,7 +148,7 @@ extension TransformationConfig {
     static let cleanTerminalTextDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
 
     /// Stable UUID for the default "Format As Markdown" transformation.
-    private static let formatAsMarkdownDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
+    static let formatAsMarkdownDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
 
     /// The built-in "Clean Terminal Text" transformation.
     ///
@@ -221,4 +221,21 @@ extension TransformationConfig {
             """
         )
     ]
+}
+
+// MARK: - Persistence Helpers
+
+extension TransformationConfig {
+    /// Decodes stored transformations from persisted data.
+    ///
+    /// - Parameter data: Raw Data from @AppStorage.
+    /// - Returns: Decoded transformations.
+    /// - Throws: Decoding errors when data exists but cannot be parsed.
+    static func decodeStoredTransformations(from data: Data?) throws -> [TransformationConfig] {
+        guard let data, data.isEmpty == false else {
+            return []
+        }
+
+        return try JSONDecoder().decode([TransformationConfig].self, from: data)
+    }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 
 /// Application delegate for Optimus Clip.
 ///
@@ -14,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Bundle ID of System Settings (System Preferences on older macOS).
     private let systemSettingsBundleID = "com.apple.systempreferences"
+
+    private let logger = Logger(subsystem: "com.optimusclip", category: "AppDelegate")
 
     func applicationDidFinishLaunching(_: Notification) {
         // Set activation policy to accessory (no Dock icon)
@@ -80,12 +83,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ///
     /// Returns default transformations on first launch so they get registered with HotkeyManager.
     private func loadSavedTransformations() -> [TransformationConfig] {
-        guard let data = UserDefaults.standard.data(forKey: SettingsKey.transformationsData),
-              !data.isEmpty,
-              let transformations = try? JSONDecoder().decode([TransformationConfig].self, from: data) else {
-            return TransformationConfig.defaultTransformations
+        let data = UserDefaults.standard.data(forKey: SettingsKey.transformationsData)
+
+        do {
+            return try TransformationConfig.decodeStoredTransformations(from: data)
+        } catch {
+            self.logger.error("Failed to decode transformations_data from UserDefaults: \(error.localizedDescription)")
+            return []
         }
-        return transformations
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
