@@ -56,11 +56,14 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
 
         let body = AnthropicMessagesRequest(
             model: request.model,
-            maxTokens: request.maxTokens ?? 12000,
+            maxTokens: 12000,
             system: request.systemPrompt,
             messages: [AnthropicMessage(role: "user", content: request.text)],
             temperature: request.temperature
         )
+        #if DEBUG
+        print("[Anthropic] Request: model=\(request.model), maxTokens=12000, timeout=\(request.timeout)")
+        #endif
         urlRequest.httpBody = try JSONEncoder().encode(body)
         return urlRequest
     }

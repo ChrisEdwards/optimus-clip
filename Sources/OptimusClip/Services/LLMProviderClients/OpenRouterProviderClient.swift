@@ -65,7 +65,7 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
                 OpenRouterMessage(role: "user", content: request.text)
             ],
             temperature: request.temperature,
-            maxTokens: request.maxTokens
+            maxTokens: 12000
         )
         urlRequest.httpBody = try JSONEncoder().encode(body)
         return urlRequest
@@ -181,7 +181,7 @@ private struct OpenRouterRequest: Encodable {
     let model: String
     let messages: [OpenRouterMessage]
     let temperature: Double
-    let maxTokens: Int?
+    let maxTokens: Int
 
     enum CodingKeys: String, CodingKey {
         case model, messages, temperature
