@@ -114,6 +114,46 @@ struct ModelResolverTests {
         #expect(resolution?.source == .fallbackDefault)
     }
 
+    @Test("resolves provider aliases via shared parser")
+    func resolvesProviderAliases() {
+        let context = self.makeResolver()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+
+        let transformation = TransformationConfig(
+            name: "AWS Alias",
+            type: .llm,
+            isEnabled: true,
+            provider: "aws",
+            model: nil,
+            systemPrompt: "prompt"
+        )
+
+        let resolution = context.resolver.resolveModel(for: transformation)
+        #expect(resolution?.provider == .awsBedrock)
+        #expect(resolution?.model == "anthropic.claude-3-haiku-20240307-v1:0")
+        #expect(resolution?.source == .fallbackDefault)
+    }
+
+    @Test("trims whitespace when parsing providers")
+    func trimsWhitespaceProviders() {
+        let context = self.makeResolver()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+
+        let transformation = TransformationConfig(
+            name: "Spaced Provider",
+            type: .llm,
+            isEnabled: true,
+            provider: "  openrouter  ",
+            model: nil,
+            systemPrompt: "prompt"
+        )
+
+        let resolution = context.resolver.resolveModel(for: transformation)
+        #expect(resolution?.provider == .openRouter)
+        #expect(resolution?.model == "openrouter/anthropic/claude-3.5-sonnet")
+        #expect(resolution?.source == .fallbackDefault)
+    }
+
     // MARK: - Helpers
 
     private struct ResolverContext {

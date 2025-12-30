@@ -77,24 +77,7 @@ struct TransformationTester {
     // MARK: - Display Name Helpers
 
     static func providerDisplayName(forRawValue rawValue: String) -> String {
-        if let kind = LLMProviderKind(rawValue: rawValue) {
-            return kind.displayName
-        }
-
-        switch rawValue.lowercased() {
-        case "openai":
-            return LLMProviderKind.openAI.displayName
-        case "anthropic":
-            return LLMProviderKind.anthropic.displayName
-        case "openrouter":
-            return LLMProviderKind.openRouter.displayName
-        case "ollama":
-            return LLMProviderKind.ollama.displayName
-        case "awsbedrock", "aws", "bedrock":
-            return LLMProviderKind.awsBedrock.displayName
-        default:
-            return rawValue.capitalized
-        }
+        LLMProviderKind.displayName(forRawValue: rawValue)
     }
 }
 

@@ -21,6 +21,44 @@ public enum LLMProviderKind: String, Sendable {
     }
 }
 
+extension LLMProviderKind {
+    /// Parse a loosely formatted provider identifier into a strong enum.
+    /// Handles raw values, common aliases, and case/whitespace differences.
+    public static func fromLooseValue(_ rawValue: String?) -> LLMProviderKind? {
+        guard let rawValue = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+              rawValue.isEmpty == false else {
+            return nil
+        }
+
+        if let direct = LLMProviderKind(rawValue: rawValue) {
+            return direct
+        }
+
+        switch rawValue.lowercased() {
+        case "openai":
+            return .openAI
+        case "anthropic":
+            return .anthropic
+        case "openrouter":
+            return .openRouter
+        case "ollama":
+            return .ollama
+        case "awsbedrock", "aws", "bedrock":
+            return .awsBedrock
+        default:
+            return nil
+        }
+    }
+
+    /// Resolve a display name from a loose provider identifier, falling back to a capitalized raw string.
+    public static func displayName(forRawValue rawValue: String) -> String {
+        guard let provider = fromLooseValue(rawValue) else {
+            return rawValue.trimmingCharacters(in: .whitespacesAndNewlines).capitalized
+        }
+        return provider.displayName
+    }
+}
+
 public enum LLMCredentials: Sendable {
     case openAI(apiKey: String)
     case anthropic(apiKey: String)

@@ -65,28 +65,7 @@ struct ModelResolver: @unchecked Sendable {
     }
 
     private func providerKind(for providerString: String?) -> LLMProviderKind? {
-        guard let providerString else {
-            return nil
-        }
-
-        if let direct = LLMProviderKind(rawValue: providerString) {
-            return direct
-        }
-
-        switch providerString.lowercased() {
-        case "openai":
-            return .openAI
-        case "anthropic":
-            return .anthropic
-        case "openrouter":
-            return .openRouter
-        case "ollama":
-            return .ollama
-        case "awsbedrock", "aws", "bedrock":
-            return .awsBedrock
-        default:
-            return nil
-        }
+        LLMProviderKind.fromLooseValue(providerString)
     }
 
     private func cleaned(_ value: String?) -> String? {

@@ -19,4 +19,11 @@ struct TransformationTesterTests {
 
         #expect(tested == pipelineResult.output)
     }
+
+    @Test("provider display names use shared normalization")
+    func providerDisplayNamesUseSharedNormalization() {
+        #expect(TransformationTester.providerDisplayName(forRawValue: "AWS") == "AWS Bedrock")
+        #expect(TransformationTester.providerDisplayName(forRawValue: " openrouter ") == "OpenRouter")
+        #expect(TransformationTester.providerDisplayName(forRawValue: "custom-provider") == "Custom-Provider")
+    }
 }
