@@ -62,7 +62,7 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
             temperature: request.temperature
         )
         #if DEBUG
-        print("[Anthropic] Request: model=\(request.model), maxTokens=12000, timeout=\(request.timeout)")
+            print("[Anthropic] Request: model=\(request.model), maxTokens=12000, timeout=\(request.timeout)")
         #endif
         urlRequest.httpBody = try JSONEncoder().encode(body)
         return urlRequest

@@ -110,27 +110,25 @@ struct TransformationConfigTests {
     // MARK: - Migration Logic Tests
 
     @Test("Migration adds built-in when missing from array")
-    func migrationAddsBuiltInWhenMissing() {
+    func migrationAddsBuiltInWhenMissing() throws {
         // Simulate user who deleted Clean Terminal Text before update
-        var loaded: [TransformationConfig] = [
+        let stored: [TransformationConfig] = [
             TransformationConfig(name: "My Custom Transform", type: .llm)
         ]
 
-        // Apply migration logic (same as in TransformationsTabView getter)
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if !loaded.contains(where: { $0.id == builtInID }) {
-            loaded.insert(TransformationConfig.builtInCleanTerminalText, at: 0)
-        }
+        let data = try JSONEncoder().encode(stored)
+        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
 
-        #expect(loaded.count == 2)
-        #expect(loaded[0].id == builtInID)
-        #expect(loaded[0].isBuiltIn == true)
+        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
+        #expect(migrated.count == 2)
+        #expect(migrated.first?.id == builtInID)
+        #expect(migrated.first?.isBuiltIn == true)
     }
 
     @Test("Migration sets isBuiltIn flag on existing Clean Terminal Text")
-    func migrationSetsIsBuiltInFlag() {
+    func migrationSetsIsBuiltInFlag() throws {
         // Simulate existing data without isBuiltIn flag
-        var loaded: [TransformationConfig] = [
+        let stored: [TransformationConfig] = [
             TransformationConfig(
                 id: TransformationConfig.cleanTerminalTextDefaultID,
                 name: "Clean Terminal Text",
@@ -139,22 +137,17 @@ struct TransformationConfigTests {
             )
         ]
 
-        // Apply migration logic (same as in TransformationsTabView getter)
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
-            if !loaded[index].isBuiltIn {
-                loaded[index].isBuiltIn = true
-            }
-        }
+        let data = try JSONEncoder().encode(stored)
+        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
 
-        #expect(loaded.count == 1)
-        #expect(loaded[0].isBuiltIn == true)
+        #expect(migrated.count == 1)
+        #expect(migrated.first?.isBuiltIn == true)
     }
 
     @Test("Migration preserves user customizations on built-in")
-    func migrationPreservesCustomizations() {
+    func migrationPreservesCustomizations() throws {
         // User may have changed hotkey or disabled - migration should preserve those
-        var loaded: [TransformationConfig] = [
+        let stored: [TransformationConfig] = [
             TransformationConfig(
                 id: TransformationConfig.cleanTerminalTextDefaultID,
                 name: "Clean Terminal Text",
@@ -164,15 +157,10 @@ struct TransformationConfigTests {
             )
         ]
 
-        // Apply migration
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        if let index = loaded.firstIndex(where: { $0.id == builtInID }) {
-            if !loaded[index].isBuiltIn {
-                loaded[index].isBuiltIn = true
-            }
-        }
+        let data = try JSONEncoder().encode(stored)
+        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
 
-        #expect(loaded[0].isBuiltIn == true)
-        #expect(loaded[0].isEnabled == false) // Preserved
+        #expect(migrated.first?.isBuiltIn == true)
+        #expect(migrated.first?.isEnabled == false) // Preserved
     }
 }

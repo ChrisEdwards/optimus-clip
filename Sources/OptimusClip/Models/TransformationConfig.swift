@@ -233,9 +233,32 @@ extension TransformationConfig {
     /// - Throws: Decoding errors when data exists but cannot be parsed.
     static func decodeStoredTransformations(from data: Data?) throws -> [TransformationConfig] {
         guard let data, data.isEmpty == false else {
-            return []
+            return self.migrateTransformations(self.defaultTransformations)
         }
 
-        return try JSONDecoder().decode([TransformationConfig].self, from: data)
+        let decoded = try JSONDecoder().decode([TransformationConfig].self, from: data)
+        return Self.migrateTransformations(decoded)
+    }
+
+    /// Applies migration fixes to a decoded transformations array.
+    ///
+    /// - Ensures the built-in Clean Terminal Text transformation exists.
+    /// - Upgrades the built-in to set `isBuiltIn` when older data omitted it.
+    ///
+    /// This keeps hotkey caches and the Settings UI aligned without silently
+    /// falling back to defaults when decoding fails elsewhere.
+    private static func migrateTransformations(_ transformations: [TransformationConfig]) -> [TransformationConfig] {
+        var migrated = transformations
+        let builtInID = Self.cleanTerminalTextDefaultID
+
+        if let index = migrated.firstIndex(where: { $0.id == builtInID }) {
+            if migrated[index].isBuiltIn == false {
+                migrated[index].isBuiltIn = true
+            }
+        } else {
+            migrated.insert(Self.builtInCleanTerminalText, at: 0)
+        }
+
+        return migrated
     }
 }

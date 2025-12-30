@@ -14,6 +14,14 @@ struct TransformationPersistenceTests {
         }
     }
 
+    @Test("Defaults are used when no transformation data is stored")
+    func defaultsWhenDataMissing() throws {
+        let decoded = try TransformationConfig.decodeStoredTransformations(from: nil)
+
+        #expect(decoded.isEmpty == false)
+        #expect(decoded.first?.id == TransformationConfig.cleanTerminalTextDefaultID)
+    }
+
     @Test("Loads stored Format As Markdown configuration")
     func loadsStoredFormatAsMarkdownConfig() async throws {
         let suiteName = "test-format-as-markdown-config"

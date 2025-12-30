@@ -7,29 +7,8 @@ import os.log
 
 private let logger = Logger(subsystem: "com.optimusclip", category: "HotkeyManager")
 
-/// Central manager for global hotkey registration and handling.
-///
-/// HotkeyManager bridges the KeyboardShortcuts package with the rest of the application,
-/// acting as the orchestrator for all hotkey functionality. It handles:
-/// - Registering keyboard shortcut handlers with KeyboardShortcuts package
-/// - Routing hotkey events to the transformation flow coordinator
-/// - Managing transformation execution lifecycle
-/// - Preventing duplicate execution during rapid key presses
-///
-/// ## Usage
-/// ```swift
-/// // At app startup
-/// HotkeyManager.shared.registerBuiltInShortcuts()
-///
-/// // When user creates a new transformation
-/// HotkeyManager.shared.register(transformation: config)
-///
-/// // When user deletes a transformation
-/// HotkeyManager.shared.unregister(transformation: config)
-/// ```
-///
-/// ## Threading
-/// All methods are MainActor-isolated for thread safety with UI and KeyboardShortcuts.
+/// Main manager for registering and handling global hotkeys.
+/// Routes KeyboardShortcuts events into the transformation flow and is MainActor-isolated.
 @MainActor
 final class HotkeyManager: ObservableObject {
     // MARK: - Singleton
@@ -123,18 +102,7 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - User Transformation Registration
 
-    /// Registers a hotkey handler for a user-created transformation.
-    ///
-    /// - Parameter transformation: The transformation configuration to register.
-    ///
-    /// This method:
-    /// 1. Skips registration if transformation is disabled
-    /// 2. Registers onKeyUp handler with KeyboardShortcuts
-    /// 3. Tracks the registration for later cleanup
-    /// 4. Enables the shortcut
-    ///
-    /// ## Important
-    /// Use `[weak self]` in the closure to prevent retain cycles.
+    /// Registers a hotkey handler for a user-created transformation and enables it when active.
     func register(transformation: TransformationConfig) {
         guard transformation.isEnabled else { return }
 
@@ -301,12 +269,7 @@ final class HotkeyManager: ObservableObject {
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 
-    /// Creates the default Format As Markdown LLM pipeline.
-    ///
-    /// Uses Anthropic Claude as the default provider with a markdown formatting prompt.
-    /// Falls back to the first configured LLM provider if Anthropic is not available.
-    ///
-    /// - Returns: A configured LLM pipeline, or `nil` if no LLM provider is configured.
+    /// Builds the Format As Markdown pipeline using stored settings or a provider fallback.
     private func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
         let factory = LLMProviderClientFactory()
 
@@ -394,13 +357,7 @@ final class HotkeyManager: ObservableObject {
         ModelResolver.fallbackModel(for: provider) ?? "gpt-4o-mini"
     }
 
-    /// Triggers a transformation programmatically (from menu or hotkey).
-    ///
-    /// This is the single source of truth for transformation execution.
-    /// Both hotkey handlers and menu items should use this method.
-    ///
-    /// - Parameter transformation: The transformation configuration to execute.
-    /// - Returns: `true` if transformation was triggered, `false` if blocked.
+    /// Triggers a transformation from menu items or hotkeys, guarding against duplicate runs.
     @discardableResult
     func triggerTransformation(_ transformation: TransformationConfig) async -> Bool {
         self.flowCoordinator.transformationTimeout = self.currentTimeout()
