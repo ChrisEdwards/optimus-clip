@@ -38,8 +38,9 @@ struct TransformationTester {
     // MARK: - Private
 
     private func runAlgorithmicTest(input: String) async throws -> String {
-        let transformation = WhitespaceStripTransformation()
-        return try await transformation.transform(input)
+        let pipeline = TransformationPipeline.cleanTerminalText()
+        let result = try await pipeline.execute(input)
+        return result.output
     }
 
     private func runLLMTest(transformation: TransformationConfig, input: String) async throws -> String {
