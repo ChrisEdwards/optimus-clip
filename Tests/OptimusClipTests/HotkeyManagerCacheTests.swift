@@ -213,6 +213,48 @@ struct HotkeyManagerCacheTests {
         let lastRequest = try #require(await client.lastRequest())
         #expect(lastRequest.systemPrompt == storedPrompt)
     }
+
+    @Test("LLM pipeline uses provider default when model is empty")
+    @MainActor
+    func llmPipelineUsesProviderDefaultWhenModelEmpty() async throws {
+        let suiteName = "hotkey-fallback-model.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let providerDefault = "provider-default-model"
+        defaults.set(providerDefault, forKey: ModelResolver.providerModelKey(for: .openAI))
+
+        let transformation = TransformationConfig(
+            name: "LLM Transform",
+            type: .llm,
+            isEnabled: true,
+            provider: "openai",
+            model: nil,
+            systemPrompt: "Prompt"
+        )
+
+        let client = RecordingLLMClient(provider: .openAI)
+        let resolution = ModelResolver.Resolution(
+            provider: .openAI,
+            model: providerDefault,
+            source: .providerDefault
+        )
+        let factory = StubLLMFactory(
+            client: client,
+            resolution: resolution,
+            allowDirectResolution: true
+        )
+
+        let manager = HotkeyManager(userDefaults: defaults)
+        manager.llmFactory = factory
+
+        let pipeline = try #require(manager.createLLMPipeline(for: transformation))
+        let result = try await pipeline.execute("input")
+        #expect(result.output == transformation.systemPrompt)
+
+        let lastRequest = try #require(await client.lastRequest())
+        #expect(lastRequest.model == providerDefault)
+    }
 }
 
 // MARK: - Test Doubles

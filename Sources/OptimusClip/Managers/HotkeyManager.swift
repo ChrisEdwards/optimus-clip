@@ -411,7 +411,7 @@ final class HotkeyManager: ObservableObject {
     ///
     /// - Parameter transformation: The transformation config with LLM settings.
     /// - Returns: A configured pipeline, or `nil` if LLM is not configured.
-    private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
+    func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
         let factory = self.llmFactory
         let resolver = ModelResolver(userDefaults: self.userDefaults)
         guard let resolved = try? factory.client(for: transformation, modelResolver: resolver) else {
