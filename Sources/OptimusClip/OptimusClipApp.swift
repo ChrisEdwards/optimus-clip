@@ -77,6 +77,17 @@ struct OptimusClipApp: App {
 
 // MARK: - Menu Bar Menu Content
 
+enum MenuBarTransformationsLoader {
+    static func load(from data: Data?) -> Result<[TransformationConfig], Error> {
+        do {
+            let decoded = try TransformationConfig.decodeStoredTransformations(from: data)
+            return .success(decoded)
+        } catch {
+            return .failure(error)
+        }
+    }
+}
+
 /// Content view for the menu bar dropdown menu.
 private struct MenuBarMenuContent: View {
     @ObservedObject var updaterWrapper: UpdaterWrapper
@@ -84,12 +95,7 @@ private struct MenuBarMenuContent: View {
     @AppStorage("transformations_data") private var transformationsData: Data = .init()
 
     private var transformationsResult: Result<[TransformationConfig], Error> {
-        do {
-            let decoded = try TransformationConfig.decodeStoredTransformations(from: self.transformationsData)
-            return .success(decoded)
-        } catch {
-            return .failure(error)
-        }
+        MenuBarTransformationsLoader.load(from: self.transformationsData)
     }
 
     private var transformations: [TransformationConfig] {
