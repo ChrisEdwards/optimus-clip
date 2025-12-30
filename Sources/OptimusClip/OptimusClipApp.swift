@@ -255,6 +255,7 @@ private struct TransformationMenuItem: View {
             timeoutSeconds: effectiveTimeout
         )
 
-        return TransformationPipeline.single(llmTransformation, config: .llm)
+        let config = PipelineConfig(timeout: effectiveTimeout, failFast: true)
+        return TransformationPipeline.single(llmTransformation, config: config)
     }
 }

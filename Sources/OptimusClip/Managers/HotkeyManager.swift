@@ -7,8 +7,7 @@ import os.log
 
 private let logger = Logger(subsystem: "com.optimusclip", category: "HotkeyManager")
 
-/// Main manager for registering and handling global hotkeys.
-/// Routes KeyboardShortcuts events into the transformation flow and is MainActor-isolated.
+/// Main manager for registering and handling global hotkeys. MainActor-isolated.
 @MainActor
 final class HotkeyManager: ObservableObject {
     // MARK: - Singleton
@@ -431,8 +430,9 @@ final class HotkeyManager: ObservableObject {
             timeoutSeconds: effectiveTimeout
         )
 
-        // Wrap in a pipeline with LLM-appropriate timeout
-        return TransformationPipeline.single(llmTransformation, config: .llm)
+        // Wrap in a pipeline with user-configured timeout
+        let config = PipelineConfig(timeout: effectiveTimeout, failFast: true)
+        return TransformationPipeline.single(llmTransformation, config: config)
     }
 
     // MARK: - Query Methods
