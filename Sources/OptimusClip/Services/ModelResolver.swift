@@ -122,7 +122,7 @@ extension ModelResolver {
         case .anthropic:
             "claude-3-5-sonnet-20241022"
         case .openRouter:
-            "anthropic/claude-3.5-sonnet"
+            "openrouter/anthropic/claude-3.5-sonnet"
         case .ollama:
             "llama3.1"
         case .awsBedrock:

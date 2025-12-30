@@ -72,7 +72,7 @@ struct ModelResolverTests {
 
         let resolution = context.resolver.resolveModel(for: transformation)
         #expect(resolution?.provider == .openRouter)
-        #expect(resolution?.model == "anthropic/claude-3.5-sonnet")
+        #expect(resolution?.model == "openrouter/anthropic/claude-3.5-sonnet")
         #expect(resolution?.source == .fallbackDefault)
     }
 
