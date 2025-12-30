@@ -24,14 +24,10 @@ import Sparkle
 ///     }
 /// }
 /// ```
+private let developerTeamIDKey = "SUDeveloperTeamID"
+
 @MainActor
 final class UpdaterWrapper: ObservableObject {
-    // MARK: - Configuration
-
-    /// Info.plist key that should contain the Developer Team ID.
-    /// Set via build setting: `SUDeveloperTeamID = $(DEVELOPMENT_TEAM)`
-    private nonisolated(unsafe) static let developerTeamIDKey = "SUDeveloperTeamID"
-
     // MARK: - Properties
 
     /// The Sparkle updater controller (nil if updates disabled)
@@ -127,7 +123,7 @@ final class UpdaterWrapper: ObservableObject {
 
     /// Reads and normalizes the Developer Team ID from a bundle.
     nonisolated static func teamID(from bundle: Bundle) -> String? {
-        let rawValue = bundle.object(forInfoDictionaryKey: Self.developerTeamIDKey) as? String
+        let rawValue = bundle.object(forInfoDictionaryKey: developerTeamIDKey) as? String
         return Self.normalizedTeamID(rawValue)
     }
 

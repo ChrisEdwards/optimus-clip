@@ -1,5 +1,4 @@
 import Foundation
-import OptimusClipCore
 
 extension ModelCatalog {
     // MARK: - Static / Fallback Lists

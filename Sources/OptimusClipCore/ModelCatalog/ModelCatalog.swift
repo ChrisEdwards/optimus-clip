@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 // UserDefaults is thread-safe for our usage in caching; mark as Sendable for actors.
-extension UserDefaults: @unchecked Sendable {}
+extension UserDefaults: @retroactive @unchecked Sendable {}
 
 // MARK: - Public Types
 
