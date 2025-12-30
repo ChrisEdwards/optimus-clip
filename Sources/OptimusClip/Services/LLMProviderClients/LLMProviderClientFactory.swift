@@ -1,6 +1,15 @@
 import Foundation
 import OptimusClipCore
 
+protocol LLMProviderClientBuilding {
+    func client(for provider: LLMProviderKind) throws -> (any LLMProviderClient)?
+    func client(
+        for transformation: TransformationConfig,
+        modelResolver: ModelResolver
+    ) throws -> LLMProviderClientFactory.ClientResolution?
+    func configuredClients() throws -> [LLMProviderKind: any LLMProviderClient]
+}
+
 /// Factory for creating LLMProviderClient instances from Keychain credentials.
 ///
 /// This factory bridges the credential storage layer (ProviderCredentialsResolver)
@@ -119,6 +128,8 @@ extension LLMProviderClientFactory {
         let resolution: ModelResolver.Resolution
     }
 }
+
+extension LLMProviderClientFactory: LLMProviderClientBuilding {}
 
 // MARK: - ModelProviderConfig Extension
 

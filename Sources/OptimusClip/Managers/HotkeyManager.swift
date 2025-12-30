@@ -29,6 +29,8 @@ final class HotkeyManager: ObservableObject {
 
     /// Persistent storage for the listening flag.
     private let userDefaults: UserDefaults
+    /// Factory for building LLM provider clients (overridable in tests).
+    var llmFactory: any LLMProviderClientBuilding = LLMProviderClientFactory()
 
     /// Set of shortcut names with registered handlers.
     private var registeredShortcuts: Set<KeyboardShortcuts.Name> = []
@@ -270,49 +272,51 @@ final class HotkeyManager: ObservableObject {
     }
 
     /// Builds the Format As Markdown pipeline using stored settings or a provider fallback.
-    private func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
-        let factory = LLMProviderClientFactory()
+    func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
+        let factory = self.llmFactory
+        guard let stored = self.formatAsMarkdownTransformation() else {
+            logger.warning("No stored Format As Markdown transformation found")
+            return nil
+        }
 
-        if let stored = self.formatAsMarkdownTransformation(),
-           let pipeline = self.createLLMPipeline(for: stored) {
+        if let pipeline = self.createLLMPipeline(for: stored) {
             logger.info("Using stored Format As Markdown transformation")
             return pipeline
         }
 
-        // Try the default provider (Anthropic) first
-        if let client = try? factory.client(for: .anthropic), client.isConfigured() {
-            logger.info("Using Anthropic for Format As Markdown")
-            let model = ModelResolver.fallbackModel(for: .anthropic) ?? "claude-3-5-sonnet-20241022"
-            return self.makeFormatAsMarkdownPipeline(client: client, model: model)
-        }
-        logger.debug("Anthropic not configured, checking other providers")
-
-        // Fall back to any configured provider
+        // Fall back to any configured provider while preserving the user's prompt
         guard let configuredClients = try? factory.configuredClients(),
               let (provider, client) = configuredClients.first else {
             logger.warning("No LLM providers configured in Keychain")
             return nil
         }
 
-        logger.info("Using fallback provider: \(provider.rawValue)")
-        return self.makeFormatAsMarkdownPipeline(client: client, model: Self.defaultModel(for: provider))
+        logger.info("Using fallback provider: \(provider.rawValue) with stored Format As Markdown prompt")
+        let model = stored.model ?? Self.defaultModel(for: provider)
+        return self.makeFormatAsMarkdownPipeline(
+            client: client,
+            model: model,
+            systemPrompt: stored.systemPrompt,
+            displayName: stored.name
+        )
     }
 
     /// Creates an LLM pipeline for Format As Markdown with the given client and model.
-    private func makeFormatAsMarkdownPipeline(client: any LLMProviderClient, model: String) -> TransformationPipeline {
-        let prompt = "Format the following text as clean, well-structured Markdown. " +
-            "Use appropriate headers, lists, code blocks, and emphasis where applicable. " +
-            "Fix any grammar or spelling issues while preserving the original meaning."
-
+    private func makeFormatAsMarkdownPipeline(
+        client: any LLMProviderClient,
+        model: String,
+        systemPrompt: String,
+        displayName: String
+    ) -> TransformationPipeline {
         let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
         let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
 
         let transformation = LLMTransformation(
             id: "format-as-markdown-builtin",
-            displayName: "Format As Markdown",
+            displayName: displayName,
             providerClient: client,
             model: model,
-            systemPrompt: prompt,
+            systemPrompt: systemPrompt,
             timeoutSeconds: effectiveTimeout
         )
         return TransformationPipeline.single(transformation, config: .llm)
@@ -408,8 +412,9 @@ final class HotkeyManager: ObservableObject {
     /// - Parameter transformation: The transformation config with LLM settings.
     /// - Returns: A configured pipeline, or `nil` if LLM is not configured.
     private func createLLMPipeline(for transformation: TransformationConfig) -> TransformationPipeline? {
-        let factory = LLMProviderClientFactory()
-        guard let resolved = try? factory.client(for: transformation) else {
+        let factory = self.llmFactory
+        let resolver = ModelResolver(userDefaults: self.userDefaults)
+        guard let resolved = try? factory.client(for: transformation, modelResolver: resolver) else {
             return nil
         }
 

@@ -1,4 +1,5 @@
 import Foundation
+import OptimusClipCore
 import SwiftUI
 import Testing
 @testable import OptimusClip
@@ -168,5 +169,103 @@ struct HotkeyManagerCacheTests {
         #expect(cached?.systemPrompt == "After Enable Update", "Should have updated prompt after enabling")
 
         manager.unregister(transformation: transformation)
+    }
+
+    @Test("Format As Markdown uses stored prompt when falling back to configured provider")
+    @MainActor
+    func formatAsMarkdownUsesStoredPromptOnFallback() async throws {
+        let suiteName = "format-as-markdown-fallback.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let storedPrompt = "User-custom markdown prompt"
+        let storedTransformation = TransformationConfig(
+            id: TransformationConfig.formatAsMarkdownDefaultID,
+            name: "Format As Markdown",
+            type: .llm,
+            isEnabled: true,
+            provider: "openai",
+            model: "gpt-4o",
+            systemPrompt: storedPrompt
+        )
+        let data = try JSONEncoder().encode([storedTransformation])
+        defaults.set(data, forKey: SettingsKey.transformationsData)
+
+        let client = RecordingLLMClient(provider: .openAI)
+        let resolution = ModelResolver.Resolution(
+            provider: .openAI,
+            model: "gpt-4o",
+            source: .transformationOverride
+        )
+        let factory = StubLLMFactory(
+            client: client,
+            resolution: resolution,
+            allowDirectResolution: false // Force fallback path
+        )
+
+        let manager = HotkeyManager(userDefaults: defaults)
+        manager.llmFactory = factory
+
+        let pipeline = try #require(manager.createFormatAsMarkdownPipeline())
+        let result = try await pipeline.execute("input")
+        #expect(result.output == storedPrompt)
+
+        let lastRequest = try #require(await client.lastRequest())
+        #expect(lastRequest.systemPrompt == storedPrompt)
+    }
+}
+
+// MARK: - Test Doubles
+
+private struct RecordingLLMClient: LLMProviderClient {
+    let provider: LLMProviderKind
+    private let recorder = RequestRecorder()
+
+    func isConfigured() -> Bool { true }
+
+    func transform(_ request: LLMRequest) async throws -> LLMResponse {
+        await self.recorder.record(request)
+        return LLMResponse(
+            provider: self.provider,
+            model: request.model,
+            output: request.systemPrompt,
+            duration: 0.01
+        )
+    }
+
+    func lastRequest() async -> LLMRequest? {
+        await self.recorder.lastRequest
+    }
+}
+
+private actor RequestRecorder {
+    private(set) var lastRequest: LLMRequest?
+
+    func record(_ request: LLMRequest) {
+        self.lastRequest = request
+    }
+}
+
+private struct StubLLMFactory: LLMProviderClientBuilding {
+    let client: any LLMProviderClient
+    let resolution: ModelResolver.Resolution
+    let allowDirectResolution: Bool
+
+    func client(for provider: LLMProviderKind) throws -> (any LLMProviderClient)? {
+        provider == self.resolution.provider ? self.client : nil
+    }
+
+    func client(
+        for transformation: TransformationConfig,
+        modelResolver: ModelResolver
+    ) throws -> LLMProviderClientFactory.ClientResolution? {
+        guard self.allowDirectResolution else { return nil }
+        guard let resolved = modelResolver.resolveModel(for: transformation) else { return nil }
+        guard resolved.provider == self.resolution.provider else { return nil }
+        return LLMProviderClientFactory.ClientResolution(client: self.client, resolution: resolved)
+    }
+
+    func configuredClients() throws -> [LLMProviderKind: any LLMProviderClient] {
+        [self.resolution.provider: self.client]
     }
 }
