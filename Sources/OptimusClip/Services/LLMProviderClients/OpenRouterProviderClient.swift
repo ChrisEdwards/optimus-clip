@@ -41,6 +41,17 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         return self.buildLLMResponse(chatResponse, startTime: startTime)
     }
 
+    // MARK: - Prompt Construction
+
+    private static let genericSystemPrompt = """
+    You are a clipboard transformation assistant. \
+    Transform the user's clipboard content according to their instructions.
+    """
+
+    private static func buildUserMessage(_ request: LLMRequest) -> String {
+        "\(request.systemPrompt)\n----\n\(request.text)"
+    }
+
     // MARK: - Helpers
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
@@ -61,8 +72,8 @@ public struct OpenRouterProviderClient: LLMProviderClient, Sendable {
         let body = OpenRouterRequest(
             model: request.model,
             messages: [
-                OpenRouterMessage(role: "system", content: request.systemPrompt),
-                OpenRouterMessage(role: "user", content: request.text)
+                OpenRouterMessage(role: "system", content: Self.genericSystemPrompt),
+                OpenRouterMessage(role: "user", content: Self.buildUserMessage(request))
             ],
             temperature: request.temperature,
             maxTokens: 12000

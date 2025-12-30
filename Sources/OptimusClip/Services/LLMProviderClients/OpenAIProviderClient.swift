@@ -37,6 +37,17 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         return self.buildLLMResponse(chatResponse, startTime: startTime)
     }
 
+    // MARK: - Prompt Construction
+
+    private static let genericSystemPrompt = """
+    You are a clipboard transformation assistant. \
+    Transform the user's clipboard content according to their instructions.
+    """
+
+    private static func buildUserMessage(_ request: LLMRequest) -> String {
+        "\(request.systemPrompt)\n----\n\(request.text)"
+    }
+
     // MARK: - Helpers
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
@@ -55,8 +66,8 @@ public struct OpenAIProviderClient: LLMProviderClient, Sendable {
         let body = OpenAIChatRequest(
             model: request.model,
             messages: [
-                OpenAIMessage(role: "system", content: request.systemPrompt),
-                OpenAIMessage(role: "user", content: request.text)
+                OpenAIMessage(role: "system", content: Self.genericSystemPrompt),
+                OpenAIMessage(role: "user", content: Self.buildUserMessage(request))
             ],
             temperature: request.temperature,
             maxTokens: 12000
