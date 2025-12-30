@@ -88,14 +88,14 @@ public final class ClipboardMonitor {
         self.lastChangeCount = NSPasteboard.general.changeCount
     }
 
-    deinit {
+    @MainActor deinit {
         // IMPORTANT: deinit cannot be actor-isolated in Swift.
         // DispatchSourceTimer.cancel() is thread-safe, so this is safe
         // to call from any thread. Task.cancel() is also thread-safe.
         // We access stored properties directly without actor isolation,
         // which is safe in deinit since no other code can access self.
-        pendingGraceTask?.cancel()
-        timer?.cancel()
+        self.pendingGraceTask?.cancel()
+        self.cancelTimerSafely()
     }
 
     // MARK: - Lifecycle
@@ -141,10 +141,8 @@ public final class ClipboardMonitor {
 
         self.pendingGraceTask?.cancel()
         self.pendingGraceTask = nil
-        self.timer?.cancel()
-        self.timer = nil
+        self.cancelTimerSafely()
         self.isMonitoring = false
-        self.isSuspended = false
     }
 
     /// Suspends clipboard monitoring temporarily.
@@ -243,5 +241,17 @@ public final class ClipboardMonitor {
 
         // No text content found
         return nil
+    }
+
+    private func cancelTimerSafely() {
+        guard let timer else { return }
+
+        if self.isSuspended {
+            timer.resume()
+        }
+
+        self.isSuspended = false
+        timer.cancel()
+        self.timer = nil
     }
 }
