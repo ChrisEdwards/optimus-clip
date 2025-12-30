@@ -1,4 +1,8 @@
+import CryptoKit
 import Foundation
+
+// UserDefaults is thread-safe for our usage in caching; mark as Sendable for actors.
+extension UserDefaults: @unchecked Sendable {}
 
 // MARK: - Public Types
 
@@ -88,7 +92,7 @@ public struct ModelProviderConfig: Sendable {
     }
 
     /// Cache TTL in seconds for the provider.
-    var cacheTTL: TimeInterval {
+    public var cacheTTL: TimeInterval {
         switch self.provider {
         case .openAI:
             24 * 60 * 60
@@ -102,7 +106,7 @@ public struct ModelProviderConfig: Sendable {
     }
 
     /// Unique key for cache isolation per provider + configuration.
-    var cacheKey: String {
+    public var cacheKey: String {
         var components: [String] = [self.provider.rawValue]
         if let region {
             components.append(region)
@@ -110,7 +114,22 @@ public struct ModelProviderConfig: Sendable {
         if let host {
             components.append(host.absoluteString)
         }
+        if let fingerprint = self.apiKeyFingerprint {
+            components.append("key:\(fingerprint)")
+        }
         return components.joined(separator: "::")
+    }
+
+    /// Stable, non-sensitive fingerprint derived from the API key for cache isolation.
+    ///
+    /// Uses the first 12 hex characters of SHA256(key) to avoid storing secrets.
+    public var apiKeyFingerprint: String? {
+        guard let apiKey, let data = apiKey.data(using: .utf8) else {
+            return nil
+        }
+        let hash = SHA256.hash(data: data)
+        let hex = hash.compactMap { String(format: "%02x", $0) }.joined()
+        return String(hex.prefix(12))
     }
 }
 
