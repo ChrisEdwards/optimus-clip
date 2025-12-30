@@ -10,11 +10,10 @@ struct MenuBarTransformationsLoaderTests {
         let invalid = Data([0x00, 0x01])
         let result = MenuBarTransformationsLoader.load(from: invalid)
 
-        switch result {
-        case .success:
+        if case let .failure(error) = result {
+            #expect(error.localizedDescription.isEmpty == false)
+        } else {
             Issue.record("Expected decode failure for invalid data")
-        case .failure:
-            #expect(true)
         }
     }
 

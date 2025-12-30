@@ -25,6 +25,6 @@ struct ClipboardMonitorLifecycleTests {
 
         monitor = nil
 
-        #expect(true) // Pass if no crash occurs
+        #expect(Bool(true)) // Passes if no crash during deinit
     }
 }
