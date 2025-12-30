@@ -50,6 +50,10 @@
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/ChrisEdwards/optimus-clip/main/appcast.xml</string>
 
+    <!-- SUDeveloperTeamID: used by Sparkle to verify Developer ID signature -->
+    <key>SUDeveloperTeamID</key>
+    <string>$(DEVELOPMENT_TEAM)</string>
+
     <!-- SUPublicEDKey: ed25519 public key for verifying update signatures -->
     <!-- Private key stored in macOS Keychain (never commit to git) -->
     <key>SUPublicEDKey</key>

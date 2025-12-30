@@ -28,10 +28,9 @@ import Sparkle
 final class UpdaterWrapper: ObservableObject {
     // MARK: - Configuration
 
-    /// Apple Developer Team ID for code signing verification.
-    /// Replace with your actual Team ID from Apple Developer Portal.
-    /// Find it with: `security find-identity -v -p codesigning`
-    private static let teamID = "YOUR_TEAM_ID"
+    /// Info.plist key that should contain the Developer Team ID.
+    /// Set via build setting: `SUDeveloperTeamID = $(DEVELOPMENT_TEAM)`
+    private nonisolated(unsafe) static let developerTeamIDKey = "SUDeveloperTeamID"
 
     // MARK: - Properties
 
@@ -43,10 +42,15 @@ final class UpdaterWrapper: ObservableObject {
 
     /// Whether update checking is available (false during development)
     @Published private(set) var canCheckForUpdates: Bool = false
+    private let bundle: Bundle
+    private let teamID: String?
 
     // MARK: - Initialization
 
-    init() {
+    init(bundle: Bundle = .main) {
+        self.bundle = bundle
+        self.teamID = Self.teamID(from: bundle)
+
         guard self.shouldEnableUpdater() else {
             print("[UpdaterWrapper] Updates disabled (development build)")
             return
@@ -79,16 +83,20 @@ final class UpdaterWrapper: ObservableObject {
 
     /// Determine if Sparkle should be enabled based on runtime conditions
     private func shouldEnableUpdater() -> Bool {
-        let bundle = Bundle.main
-
         // Condition 1: Must be running as an app bundle
-        guard bundle.bundleURL.pathExtension == "app" else {
+        guard self.bundle.bundleURL.pathExtension == "app" else {
             print("[UpdaterWrapper] Not an app bundle")
             return false
         }
 
+        // Condition 2: Team ID must be provided and not a placeholder
+        guard let teamID = self.teamID else {
+            print("[UpdaterWrapper] Missing or placeholder Developer Team ID")
+            return false
+        }
+
         // Condition 2: Must be signed with Developer ID
-        guard self.isSignedWithDeveloperID(bundle.bundleURL) else {
+        guard self.isSignedWithDeveloperID(self.bundle.bundleURL, teamID: teamID) else {
             print("[UpdaterWrapper] Not signed with Developer ID")
             return false
         }
@@ -97,7 +105,7 @@ final class UpdaterWrapper: ObservableObject {
     }
 
     /// Verify the app is signed with our Developer ID certificate
-    private func isSignedWithDeveloperID(_ url: URL) -> Bool {
+    private func isSignedWithDeveloperID(_ url: URL, teamID: String) -> Bool {
         var code: SecStaticCode?
         let createStatus = SecStaticCodeCreateWithPath(url as CFURL, [], &code)
 
@@ -106,8 +114,7 @@ final class UpdaterWrapper: ObservableObject {
         }
 
         // Requirement: Signed by Apple and our specific team
-        // IMPORTANT: Update teamID constant with your actual Apple Developer Team ID
-        let requirement = "anchor apple generic and certificate leaf[subject.OU] = \"\(Self.teamID)\""
+        let requirement = "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\""
 
         var req: SecRequirement?
         guard SecRequirementCreateWithString(requirement as CFString, [], &req) == errSecSuccess,
@@ -116,5 +123,25 @@ final class UpdaterWrapper: ObservableObject {
         }
 
         return SecStaticCodeCheckValidity(staticCode, [], secRequirement) == errSecSuccess
+    }
+
+    /// Reads and normalizes the Developer Team ID from a bundle.
+    nonisolated static func teamID(from bundle: Bundle) -> String? {
+        let rawValue = bundle.object(forInfoDictionaryKey: Self.developerTeamIDKey) as? String
+        return Self.normalizedTeamID(rawValue)
+    }
+
+    /// Normalizes a raw Team ID string and discards placeholders.
+    nonisolated static func normalizedTeamID(_ rawValue: String?) -> String? {
+        guard let trimmed = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+
+        let uppercased = trimmed.uppercased()
+        if trimmed.contains("$(") || uppercased == "YOUR_TEAM_ID" || uppercased == "CHANGE_ME" {
+            return nil
+        }
+
+        return trimmed
     }
 }
