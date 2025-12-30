@@ -66,6 +66,41 @@ struct ModelCatalogTests {
         #expect(await mockClient.callCount() == 1)
     }
 
+    @Test("OpenRouter model fetch includes required headers")
+    func openRouterFetchIncludesHeaders() async throws {
+        let mockClient = MockHTTPClient()
+        guard let openRouterURL = URL(string: "https://openrouter.ai/api/v1/models") else {
+            throw TestError.invalidURL
+        }
+
+        try await mockClient.enqueue(
+            data: self.makeOpenRouterResponseData(),
+            statusCode: 200,
+            url: openRouterURL
+        )
+
+        let catalog = ModelCatalog(
+            httpClient: mockClient,
+            cache: self.makeCache(),
+            now: { Date() }
+        )
+
+        #expect(ModelCatalog.openRouterReferer() == "https://optimusclip.app")
+        #expect(ModelCatalog.openRouterTitle() == "Optimus Clip")
+
+        _ = try await catalog.models(for: .openRouter(apiKey: "sk-or-test"))
+
+        #expect(await mockClient.callCount() == 1)
+
+        let headers = try #require(await mockClient.lastHeaders())
+        print("Captured headers:", headers)
+        #expect(headers.isEmpty == false, "headers: \(headers)")
+        #expect(headers["Authorization"] == "Bearer sk-or-test")
+        let referer = headers["HTTP-Referer"] ?? headers["Referer"]
+        #expect(referer == "https://optimusclip.app", "headers: \(headers)")
+        #expect(headers["X-Title"] == "Optimus Clip", "headers: \(headers)")
+    }
+
     @Test("falls back to stale cache when live fetch fails")
     func fallsBackToStaleCache() async throws {
         let pastDate = Date().addingTimeInterval(-7200)
@@ -178,6 +213,8 @@ private struct FailingHTTPClient: HTTPClient {
 private actor MockHTTPClient: HTTPClient {
     private var queue: [Result<(Data, URLResponse), Error>] = []
     private var calls = 0
+    private var lastCapturedRequest: URLRequest?
+    private var lastCapturedHeaders: [String: String]?
 
     func enqueue(data: Data, statusCode: Int, url: URL) {
         guard let response = HTTPURLResponse(
@@ -199,7 +236,17 @@ private actor MockHTTPClient: HTTPClient {
         self.calls
     }
 
-    func data(for _: URLRequest) async throws -> (Data, URLResponse) {
+    func lastRequest() -> URLRequest? {
+        self.lastCapturedRequest
+    }
+
+    func lastHeaders() -> [String: String]? {
+        self.lastCapturedHeaders
+    }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        self.lastCapturedRequest = request
+        self.lastCapturedHeaders = request.allHTTPHeaderFields
         self.calls += 1
         guard !self.queue.isEmpty else {
             throw TestError.noQueuedResponse

@@ -340,6 +340,10 @@ public actor ModelCatalog {
         request.httpMethod = "GET"
         request.timeoutInterval = 15
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let referer = Self.openRouterReferer()
+        request.setValue(referer, forHTTPHeaderField: "HTTP-Referer")
+        request.setValue(referer, forHTTPHeaderField: "Referer")
+        request.setValue(Self.openRouterTitle(), forHTTPHeaderField: "X-Title")
 
         let (data, response) = try await self.httpClient.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -416,35 +420,6 @@ public actor ModelCatalog {
     }
 
     // MARK: - Static / Fallback Lists
-
-    private func staticAnthropicModels() -> [LLMModel] {
-        [
-            LLMModel(id: "claude-3-opus-20240229", provider: .anthropic, contextLength: 200_000),
-            LLMModel(id: "claude-3-sonnet-20240229", provider: .anthropic, contextLength: 200_000),
-            LLMModel(id: "claude-3-haiku-20240307", provider: .anthropic, contextLength: 200_000),
-            LLMModel(id: "claude-3-5-sonnet-20241022", provider: .anthropic, contextLength: 200_000)
-        ]
-    }
-
-    private func staticBedrockModels(region: String) -> [LLMModel] {
-        let models = [
-            LLMModel(id: "anthropic.claude-3-haiku-20240307-v1:0", provider: .awsBedrock, contextLength: 200_000),
-            LLMModel(id: "anthropic.claude-3-sonnet-20240229-v1:0", provider: .awsBedrock, contextLength: 200_000),
-            LLMModel(id: "anthropic.claude-3-opus-20240229-v1:0", provider: .awsBedrock, contextLength: 200_000),
-            LLMModel(id: "anthropic.claude-3-5-sonnet-20241022-v2:0", provider: .awsBedrock, contextLength: 200_000),
-            LLMModel(id: "meta.llama3-8b-instruct-v1:0", provider: .awsBedrock, contextLength: 8000)
-        ]
-        return models.map { model in
-            LLMModel(
-                id: model.id,
-                name: "\(model.name) (\(region))",
-                provider: model.provider,
-                contextLength: model.contextLength,
-                pricing: model.pricing,
-                isDeprecated: model.isDeprecated
-            )
-        }
-    }
 
     private func fallbackModels(for config: ModelProviderConfig) -> [LLMModel]? {
         switch config.provider {
