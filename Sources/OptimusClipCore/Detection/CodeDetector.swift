@@ -119,33 +119,10 @@ public struct CodeDetector: Sendable {
     public func hasKeywordsScore(_ text: String) -> Double {
         // Keywords that are specific to programming and unlikely in normal prose
         // Avoiding common English words like: this, new, with, return, from, for, while, if, else, case, etc.
-        let codeKeywords = [
-            // Function/method definitions (high specificity)
-            "function", "func", "def", "async", "await",
-            // Type definitions (high specificity)
-            "class", "interface", "struct", "enum", "trait", "protocol",
-            // Variable declarations (high specificity)
-            "const", "var", "val", "mut", "let",
-            // Access modifiers (high specificity)
-            "public", "private", "protected", "static",
-            // Import statements (high specificity)
-            "import", "export", "require", "include",
-            // Exception handling (high specificity)
-            "catch", "throw", "throws", "finally", "except",
-            // Language-specific keywords (very high specificity)
-            "fn", "impl", "pub", "mod", "crate", // Rust
-            "fun", "suspend", "companion", // Kotlin
-            "guard", "defer", "extension", // Swift
-            "elif", "lambda", "yield", // Python
-            "chan", // Go
-            "nullptr", "sizeof", "typedef", // C/C++
-            "instanceof", "typeof" // JavaScript
-        ]
-
-        let lowercaseText = text.lowercased()
-
         // Use word boundary matching to avoid false positives
-        let keywordMatches = codeKeywords.count { self.matchesAsWord($0, in: lowercaseText) }
+        let keywordMatches = CodeDetectorRegexes.keywordRegexes.count { regex in
+            regex.containsMatch(in: text)
+        }
 
         if keywordMatches >= 5 { return 1.0 }
         if keywordMatches >= 3 { return 0.7 }
@@ -250,14 +227,11 @@ public struct CodeDetector: Sendable {
     ///
     /// Fenced code blocks are a definitive code indicator in markdown.
     public func containsFencedCodeBlock(_ text: String) -> Bool {
-        // Match opening ``` with optional language identifier
-        let pattern = "```[a-zA-Z]*\\s*\\n"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        guard let regex = CodeDetectorRegexes.fencedStartRegex else {
             return false
         }
 
-        let range = NSRange(text.startIndex..., in: text)
-        return regex.firstMatch(in: text, range: range) != nil
+        return regex.containsMatch(in: text)
     }
 
     /// Detects code block ranges within mixed content.
@@ -284,21 +258,9 @@ public struct CodeDetector: Sendable {
     // MARK: - Private Helpers
 
     /// Matches a keyword as a complete word, not part of a larger word.
-    private func matchesAsWord(_ keyword: String, in text: String) -> Bool {
-        let pattern = "\\b\(NSRegularExpression.escapedPattern(for: keyword))\\b"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-            return false
-        }
-        let range = NSRange(text.startIndex..., in: text)
-        return regex.firstMatch(in: text, range: range) != nil
-    }
-
-    /// Detects fenced code blocks marked with ```.
     private func detectFencedBlocks(_ text: String) -> [Range<String.Index>] {
         var blocks: [Range<String.Index>] = []
-        let pattern = "```[a-zA-Z]*[\\s\\S]*?```"
-
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        guard let regex = CodeDetectorRegexes.fencedBlockRegex else {
             return blocks
         }
 
@@ -351,5 +313,48 @@ public struct CodeDetector: Sendable {
         }
 
         return blocks
+    }
+}
+
+// MARK: - Regex Cache
+
+private enum CodeDetectorRegexes {
+    static let codeKeywords: [String] = [
+        // Function/method definitions (high specificity)
+        "function", "func", "def", "async", "await",
+        // Type definitions (high specificity)
+        "class", "interface", "struct", "enum", "trait", "protocol",
+        // Variable declarations (high specificity)
+        "const", "var", "val", "mut", "let",
+        // Access modifiers (high specificity)
+        "public", "private", "protected", "static",
+        // Import statements (high specificity)
+        "import", "export", "require", "include",
+        // Exception handling (high specificity)
+        "catch", "throw", "throws", "finally", "except",
+        // Language-specific keywords (very high specificity)
+        "fn", "impl", "pub", "mod", "crate", // Rust
+        "fun", "suspend", "companion", // Kotlin
+        "guard", "defer", "extension", // Swift
+        "elif", "lambda", "yield", // Python
+        "chan", // Go
+        "nullptr", "sizeof", "typedef", // C/C++
+        "instanceof", "typeof" // JavaScript
+    ]
+
+    static let keywordRegexes: [NSRegularExpression] =
+        Self.codeKeywords.compactMap { keyword in
+            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: keyword))\\b"
+            return try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+        }
+
+    static let fencedBlockRegex = try? NSRegularExpression(pattern: "```[a-zA-Z]*[\\s\\S]*?```")
+    static let fencedStartRegex = try? NSRegularExpression(pattern: "```[a-zA-Z]*\\s*\\n")
+}
+
+extension NSRegularExpression {
+    fileprivate func containsMatch(in text: String) -> Bool {
+        let range = NSRange(text.startIndex..., in: text)
+        return self.firstMatch(in: text, range: range) != nil
     }
 }

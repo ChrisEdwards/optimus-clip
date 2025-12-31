@@ -163,6 +163,13 @@ struct CodeDetectorTests {
         #expect(score == 0.0, "No keywords should score 0.0")
     }
 
+    @Test("Partial keyword matches are ignored")
+    func partialKeywordMatchesIgnored() {
+        let text = "The classiest interfaceship avoids functions at all costs."
+        let score = self.detector.hasKeywordsScore(text)
+        #expect(score == 0.0, "Keywords should only match whole words")
+    }
+
     // MARK: - Indentation Score Tests
 
     @Test("Multiple indent levels score high")
@@ -290,6 +297,11 @@ struct CodeDetectorTests {
         let confidence = self.detector.codeConfidence(mixed)
         #expect(confidence >= 0.4, "Mixed content should have medium confidence")
     }
+}
+
+@Suite("CodeDetector Behavior Tests")
+struct CodeDetectorBehaviorTests {
+    let detector = CodeDetector()
 
     // MARK: - Configuration Tests
 
