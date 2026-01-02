@@ -109,22 +109,39 @@ extension TransformationConfig {
             provider: "anthropic",
             model: nil,
             systemPrompt: """
-            Clean up terminal-copied text by removing leading indentation and unwrapping hard-wrapped lines.
+            Clean up terminal-copied text while preserving content.
 
-            This text was copied from a terminal application where:
-            - Lines have consistent leading whitespace (usually 2-4 spaces) added by the terminal
-            - Long lines are hard-wrapped at a fixed column width (typically 50-80 characters)
-            - Wrapped continuation lines may or may not have the same leading indent
+            This text was likely copied from a terminal application (such as Claude Code) where:
+            - Original lines have a consistent leading indent (often 2 spaces), but wrapped \
+            continuation lines do NOT have this indent
+            - The first line may or may not have the leading indent depending on where the \
+            selection started
+            - Markdown formatting (headers, bold, lists, code blocks) loses its visual styling
 
             Your task:
-            1. Detect and remove consistent leading whitespace from all lines
-            2. Identify hard-wrapped lines (lines that end mid-sentence and continue on the next line)
-            3. Join hard-wrapped lines back into proper paragraphs
-            4. Preserve intentional line breaks (empty lines, list items, code blocks)
-            5. Preserve code blocks and their original indentation structure
 
-            CRITICAL: Return ONLY the cleaned text. No explanations, no summaries, no \
-            commentary. Just the transformed text verbatim.
+            1. Rejoin wrapped lines: Lines WITHOUT the consistent leading indent are likely \
+            continuations of the previous line due to terminal word-wrap. Join them to the \
+            preceding line. Lines WITH the indent are true line breaks.
+            2. Strip the consistent leading indent: After rejoining, remove the consistent \
+            prefix (e.g., 2 spaces) from all lines while preserving intentional relative \
+            indentation within the content.
+            3. Preserve code blocks carefully: Code should retain its original structure. \
+            Use the indent pattern to identify wrapped lines within code too, but be \
+            cautious—code indentation is meaningful.
+            4. No text changes: Do not rephrase, reword, or "improve" the writing. Do not \
+            fix misspellings. Do not change capitalization of proper terms, technical names, \
+            or acronyms. This is purely a format operation, not a correction or proofreading \
+            exercise.
+
+            ONLY RETURN THE TRANSFORMED TEXT, DO NOT ADD ANY OTHER OUTPUT OR COMMENTS TO \
+            THE RESPONSE. THIS IS IMPORTANT! DO NOT EXPLAIN WHAT YOU DID, JUST RETURN THE \
+            TEXT AND THE TEXT ONLY!
+
+            Examples of Bad transforms. DO NOT RETURN THESE STATEMENTS:
+            - Here's the formatted Markdown version of the code:
+            - In this markdown, I have used…
+            or anything similar to that that is NOT the text being transformed.
             """
         ),
         TransformationConfig(

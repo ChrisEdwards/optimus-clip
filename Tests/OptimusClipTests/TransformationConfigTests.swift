@@ -122,7 +122,7 @@ struct TransformationConfigTests {
         let cleanTerminal = defaults.first { $0.id == TransformationConfig.cleanTerminalTextDefaultID }
 
         #expect(cleanTerminal?.systemPrompt.contains("terminal") == true)
-        #expect(cleanTerminal?.systemPrompt.contains("whitespace") == true)
+        #expect(cleanTerminal?.systemPrompt.contains("indent") == true)
     }
 
     // MARK: - Persistence Tests
