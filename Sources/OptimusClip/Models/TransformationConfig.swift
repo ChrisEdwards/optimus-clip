@@ -147,14 +147,13 @@ extension TransformationConfig {
         TransformationConfig(
             id: formatAsMarkdownDefaultID,
             name: "Format As Markdown",
-            isEnabled: false,
+            isEnabled: true,
             provider: "anthropic",
             model: nil,
             systemPrompt: """
             Clean up terminal-copied text while preserving content.
 
-            This text was likely copied from a terminal application (such as Claude Code) \
-            where:
+            This text was likely copied from a terminal application (such as Claude Code) where:
             - Original lines have a consistent leading indent (often 2 spaces), but wrapped \
             continuation lines do NOT have this indent
             - The first line may or may not have the leading indent depending on where the \
@@ -177,11 +176,16 @@ extension TransformationConfig {
             4. Preserve code blocks carefully: Code should retain its original structure. \
             Use the indent pattern to identify wrapped lines within code too, but be \
             cautious—code indentation is meaningful.
-            5. Minimal text changes: Fix only obvious spelling errors. Do not rephrase, \
+            5. Use backticks to format filenames, terminal commands, code, or other obvious \
+            code-related items to show in monospace as appropriate.
+            6. Minimal text changes: Fix only obvious spelling errors. Do not rephrase, \
             reword, or "improve" the writing. Do not change capitalization of proper terms, \
             technical names, or acronyms.
-            6. Plain code handling: If the input is entirely code with no prose, output it \
+            7. Plain code handling: If the input is entirely code with no prose, output it \
             as a clean code block without adding markdown prose around it.
+            8. Make the output visually appealing adding bold/italics and styling as \
+            necessary to reproduce what may have been lost in the copy/paste from the \
+            original.
 
             ONLY RETURN THE TRANSFORMED TEXT, DO NOT ADD ANY OTHER OUTPUT OR COMMENTS TO \
             THE RESPONSE. THIS IS IMPORTANT! DO NOT EXPLAIN WHAT YOU DID, JUST RETURN THE \
