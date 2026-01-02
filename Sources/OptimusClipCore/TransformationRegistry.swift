@@ -2,9 +2,9 @@ import Foundation
 
 /// Category of transformation for organizational purposes.
 public enum TransformationCategory: Sendable {
-    /// Pre-installed algorithmic transforms (strip whitespace, unwrap lines)
-    case builtin
-    /// Custom LLM transforms created by user (Phase 5)
+    /// LLM-powered transformations
+    case llm
+    /// Custom LLM transforms created by user
     case userDefined
 }
 
@@ -44,20 +44,19 @@ public struct RegistryEntry: Sendable {
 /// ## Usage
 /// ```swift
 /// // Get a transformation by ID
-/// let transform = TransformationRegistry.shared.transformation(for: "whitespace-strip")
+/// let transform = TransformationRegistry.shared.transformation(for: "my-transform")
 ///
 /// // List all transformations
 /// let all = TransformationRegistry.shared.allTransformations()
 ///
 /// // Enable/disable
-/// TransformationRegistry.shared.setEnabled(false, for: "whitespace-strip")
+/// TransformationRegistry.shared.setEnabled(false, for: "my-transform")
 /// ```
 ///
 /// ## Design Decisions
 /// - @MainActor for UI safety (no explicit locks needed)
 /// - Singleton pattern for global access
-/// - Built-in transformations auto-registered on init
-/// - Testable via internal initializer with configurable auto-registration
+/// - Testable via internal initializer
 @MainActor
 public final class TransformationRegistry {
     /// Shared singleton instance for production use.
@@ -67,14 +66,7 @@ public final class TransformationRegistry {
     private var transformations: [String: RegistryEntry] = [:]
 
     /// Creates a registry instance.
-    ///
-    /// - Parameter registerBuiltIns: If true, auto-registers built-in transformations.
-    ///   Default is true for production, pass false for isolated testing.
-    public init(registerBuiltIns: Bool = true) {
-        if registerBuiltIns {
-            self.registerBuiltInTransformations()
-        }
-    }
+    public init() {}
 
     // MARK: - Registration
 
@@ -119,30 +111,6 @@ public final class TransformationRegistry {
             return false
         }
         return true
-    }
-
-    /// Register all built-in transformations.
-    private func registerBuiltInTransformations() {
-        // Whitespace Strip (standalone)
-        self.register(
-            WhitespaceStripTransformation(),
-            category: .builtin,
-            enabled: true
-        )
-
-        // Smart Unwrap (standalone)
-        self.register(
-            SmartUnwrapTransformation(),
-            category: .builtin,
-            enabled: true
-        )
-
-        // Identity (for testing)
-        self.register(
-            IdentityTransformation(),
-            category: .builtin,
-            enabled: true
-        )
     }
 
     // MARK: - Lookup

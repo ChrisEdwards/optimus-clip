@@ -53,7 +53,7 @@ struct TransformationTests {
     @Test("IdentityTransformation has displayName property")
     func identityTransformationDisplayName() {
         let transformation = IdentityTransformation()
-        #expect(transformation.displayName == "Identity (No Change)")
+        #expect(transformation.displayName == "Identity")
     }
 
     // MARK: - Error LocalizedError Tests
@@ -85,12 +85,7 @@ struct TransformationTests {
         #expect(error.errorDescription == "Content too large (10000 bytes, limit 5000)")
     }
 
-    // MARK: - Phase 4: Algorithmic Transformation Tests (TODO)
-
-    // TODO: Phase 4 - Add tests for WhitespaceStripTransformation
-    // TODO: Phase 4 - Add tests for SmartUnwrapTransformation
-
-    // MARK: - Phase 5: LLM Transformation Tests
+    // MARK: - LLM Transformation Tests
 
     @Test("LLMTransformation forwards request parameters to provider")
     func llmTransformationForwardsRequest() async throws {

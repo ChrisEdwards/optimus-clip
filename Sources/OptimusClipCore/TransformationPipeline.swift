@@ -2,7 +2,7 @@ import Foundation
 
 /// Configuration for pipeline execution behavior.
 public struct PipelineConfig: Sendable {
-    /// Timeout for entire pipeline execution in seconds. Default: 5.0 for algorithmic, 30.0 for LLM.
+    /// Timeout for entire pipeline execution in seconds. Default: 30.0 for LLM transformations.
     public var timeout: TimeInterval
 
     /// Whether to fail immediately on first error (true) or collect all errors (false). Default: true.
@@ -10,17 +10,14 @@ public struct PipelineConfig: Sendable {
 
     /// Creates a pipeline configuration with the specified options.
     public init(
-        timeout: TimeInterval = 5.0,
+        timeout: TimeInterval = 30.0,
         failFast: Bool = true
     ) {
         self.timeout = timeout
         self.failFast = failFast
     }
 
-    /// Default configuration for algorithmic transforms (fast, fail-fast).
-    public static let algorithmic = PipelineConfig(timeout: 5.0, failFast: true)
-
-    /// Configuration for LLM transforms (longer timeout).
+    /// Default configuration for LLM transforms.
     public static let llm = PipelineConfig(timeout: 30.0, failFast: true)
 }
 
@@ -99,11 +96,11 @@ public enum PipelineError: Error, Sendable, LocalizedError {
 /// ## Example
 /// ```swift
 /// let pipeline = TransformationPipeline(
-///     transformations: [stripTransform, unwrapTransform],
-///     config: .algorithmic
+///     transformations: [llmTransform],
+///     config: .llm
 /// )
-/// let result = try await pipeline.execute("  Hello\n  World")
-/// print(result.output) // "Hello World"
+/// let result = try await pipeline.execute("Hello World")
+/// print(result.output) // Transformed text
 /// ```
 ///
 /// ## Error Handling
@@ -127,7 +124,7 @@ public struct TransformationPipeline: Sendable {
     ///   - config: Execution configuration (timeout, fail-fast behavior).
     public init(
         transformations: [any Transformation],
-        config: PipelineConfig = .algorithmic
+        config: PipelineConfig = .llm
     ) {
         self.transformations = transformations
         self.config = config
@@ -239,31 +236,15 @@ extension Duration {
 // MARK: - Convenience Factory Methods
 
 extension TransformationPipeline {
-    /// Creates a "Clean Terminal Text" pipeline with strip whitespace and smart unwrap.
-    ///
-    /// This is the default algorithmic transformation pipeline for
-    /// cleaning up CLI output before pasting.
-    ///
-    /// - Returns: Pipeline configured with whitespace strip and smart unwrap.
-    public static func cleanTerminalText() -> TransformationPipeline {
-        TransformationPipeline(
-            transformations: [
-                WhitespaceStripTransformation(),
-                SmartUnwrapTransformation()
-            ],
-            config: .algorithmic
-        )
-    }
-
     /// Creates a pipeline with a single transformation.
     ///
     /// - Parameters:
     ///   - transformation: The single transformation to execute.
-    ///   - config: Execution configuration.
+    ///   - config: Execution configuration (defaults to LLM config).
     /// - Returns: Pipeline with single transformation.
     public static func single(
         _ transformation: any Transformation,
-        config: PipelineConfig = .algorithmic
+        config: PipelineConfig = .llm
     ) -> TransformationPipeline {
         TransformationPipeline(
             transformations: [transformation],

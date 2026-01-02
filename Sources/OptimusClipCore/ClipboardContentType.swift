@@ -48,7 +48,7 @@ extension ClipboardContentType {
 
     /// Returns whether this content type is safe to process with transformations.
     ///
-    /// Only `.text` content can be safely sent to LLM APIs or algorithmic transformers.
+    /// Only `.text` content can be safely sent to LLM APIs.
     public var isProcessable: Bool {
         switch self {
         case .text:

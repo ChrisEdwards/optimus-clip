@@ -2,17 +2,13 @@ import Foundation
 
 /// A clipboard transformation that processes text input and produces text output.
 ///
-/// Transformations can be either algorithmic (local processing) or LLM-based (API calls).
+/// All transformations are LLM-based and require API configuration.
 /// All transformations must be thread-safe and support Swift 6 strict concurrency.
 ///
 /// Example implementations:
-/// - Whitespace stripping (algorithmic)
-/// - Line unwrapping (algorithmic)
-/// - Format as Jira ticket (LLM-based)
-///
-/// - Phase 0: Protocol definition only (minimal)
-/// - Phase 4: Algorithmic implementations (WhitespaceStripTransformation, UnwrapTransformation)
-/// - Phase 5: LLM implementations (OpenAITransformation, AnthropicTransformation)
+/// - Clean Terminal Text (LLM-based)
+/// - Format as Markdown (LLM-based)
+/// - Custom user transformations (LLM-based)
 public protocol Transformation: Sendable {
     /// Unique identifier for this transformation type.
     ///
@@ -101,25 +97,21 @@ public enum TransformationError: Error, Sendable, LocalizedError {
     }
 }
 
-// MARK: - Placeholder Implementation
+// MARK: - Test Implementation
 
-/// Minimal placeholder transformation for Phase 0 testing.
+/// Minimal transformation for testing that returns input unchanged.
 ///
-/// Simply returns the input unchanged. Used to verify:
+/// Used to verify:
 /// - Protocol can be implemented
 /// - Tests can instantiate conforming types
 /// - Async/await works correctly
-///
-/// Phase 4 will add real algorithmic transformations.
 public struct IdentityTransformation: Transformation {
     public let id = "identity"
-    public let displayName = "Identity (No Change)"
+    public let displayName = "Identity"
 
     public init() {}
 
     public func transform(_ input: String) async throws -> String {
-        // Phase 0: No-op transformation for testing
-        // Validates async/throws/Sendable semantics
         if input.isEmpty {
             throw TransformationError.emptyInput
         }
@@ -132,7 +124,7 @@ public struct IdentityTransformation: Transformation {
 /// Supplemental metadata describing how a transformation was executed.
 ///
 /// Used for history logging to capture provider/model details for LLM-based
-/// transformations while keeping algorithmic transformations lightweight.
+/// transformations.
 public struct TransformationHistoryMetadata: Sendable, Equatable {
     public let providerName: String?
     public let modelUsed: String?

@@ -11,7 +11,7 @@ struct TransformationPipelineTests {
     func executeSingleTransformation() async throws {
         let pipeline = TransformationPipeline(
             transformations: [IdentityTransformation()],
-            config: .algorithmic
+            config: .llm
         )
 
         let result = try await pipeline.execute("Hello, World!")
@@ -28,7 +28,7 @@ struct TransformationPipelineTests {
 
         let pipeline = TransformationPipeline(
             transformations: [first, second],
-            config: .algorithmic
+            config: .llm
         )
 
         let result = try await pipeline.execute("Text")
@@ -41,17 +41,17 @@ struct TransformationPipelineTests {
 
     @Test("Pipeline passes output to next stage")
     func outputPassedToNextStage() async throws {
-        let strip = WhitespaceStripTransformation()
+        let first = AppendTransformation(suffix: "X")
         let identity = IdentityTransformation()
 
         let pipeline = TransformationPipeline(
-            transformations: [strip, identity],
-            config: .algorithmic
+            transformations: [first, identity],
+            config: .llm
         )
 
-        let result = try await pipeline.execute("  Hello\n  World")
+        let result = try await pipeline.execute("Hello")
 
-        #expect(result.output == "Hello\nWorld")
+        #expect(result.output == "HelloX")
         #expect(result.stageCount == 2)
     }
 
@@ -61,7 +61,7 @@ struct TransformationPipelineTests {
     func throwsOnEmptyInput() async {
         let pipeline = TransformationPipeline(
             transformations: [IdentityTransformation()],
-            config: .algorithmic
+            config: .llm
         )
 
         await #expect(throws: TransformationError.self) {
@@ -73,7 +73,7 @@ struct TransformationPipelineTests {
     func throwsOnWhitespaceOnlyInput() async {
         let pipeline = TransformationPipeline(
             transformations: [IdentityTransformation()],
-            config: .algorithmic
+            config: .llm
         )
 
         await #expect(throws: TransformationError.self) {
@@ -87,7 +87,7 @@ struct TransformationPipelineTests {
     func emptyPipelineThrows() async {
         let pipeline = TransformationPipeline(
             transformations: [],
-            config: .algorithmic
+            config: .llm
         )
 
         await #expect(throws: PipelineError.self) {
@@ -119,7 +119,7 @@ struct TransformationPipelineTests {
 
         let pipeline = TransformationPipeline(
             transformations: [failing],
-            config: .algorithmic
+            config: .llm
         )
 
         do {
@@ -172,7 +172,7 @@ struct TransformationPipelineTests {
     func recordsStageDurations() async throws {
         let pipeline = TransformationPipeline(
             transformations: [IdentityTransformation(), IdentityTransformation()],
-            config: .algorithmic
+            config: .llm
         )
 
         let result = try await pipeline.execute("Text")
@@ -187,33 +187,17 @@ struct TransformationPipelineTests {
     @Test("Pipeline result includes transformation metadata")
     func includesTransformationMetadata() async throws {
         let pipeline = TransformationPipeline(
-            transformations: [WhitespaceStripTransformation()],
-            config: .algorithmic
+            transformations: [IdentityTransformation()],
+            config: .llm
         )
 
-        let result = try await pipeline.execute("  Hello")
+        let result = try await pipeline.execute("Hello")
 
-        #expect(result.stageResults[0].transformationId == "whitespace-strip")
-        #expect(result.stageResults[0].transformationName == "Strip Whitespace")
+        #expect(result.stageResults[0].transformationId == "identity")
+        #expect(result.stageResults[0].transformationName == "Identity")
     }
 
     // MARK: - Factory Method Tests
-
-    @Test("Clean terminal text pipeline strips and unwraps")
-    func cleanTerminalTextPipeline() async throws {
-        let pipeline = TransformationPipeline.cleanTerminalText()
-
-        // Input with 2-space indent (common CLI output)
-        let input = "  Hello\n  World"
-
-        let result = try await pipeline.execute(input)
-
-        // Should strip whitespace (stage 1), then smart unwrap may or may not join
-        // depending on line characteristics
-        #expect(result.stageCount == 2)
-        #expect(result.stageResults[0].transformationId == "whitespace-strip")
-        #expect(result.stageResults[1].transformationId == "smart-unwrap")
-    }
 
     @Test("Single transformation pipeline")
     func singleTransformationPipeline() async throws {
@@ -255,27 +239,21 @@ struct TransformationPipelineTests {
 
     // MARK: - Integration Tests
 
-    @Test("Real transformations work in pipeline")
-    func realTransformationsInPipeline() async throws {
-        // Real CLI output with 2-space indent
-        let cliOutput = """
-          def hello():
-              print("world")
-        """
-
+    @Test("Multiple transformations chain correctly")
+    func multipleTransformationsChain() async throws {
         let pipeline = TransformationPipeline(
-            transformations: [WhitespaceStripTransformation()],
-            config: .algorithmic
+            transformations: [
+                AppendTransformation(suffix: "1"),
+                AppendTransformation(suffix: "2"),
+                AppendTransformation(suffix: "3")
+            ],
+            config: .llm
         )
 
-        let result = try await pipeline.execute(cliOutput)
+        let result = try await pipeline.execute("Start")
 
-        // Should strip the 2-space indent, preserving relative indentation
-        let expected = """
-        def hello():
-            print("world")
-        """
-        #expect(result.output == expected)
+        #expect(result.output == "Start123")
+        #expect(result.stageCount == 3)
     }
 }
 

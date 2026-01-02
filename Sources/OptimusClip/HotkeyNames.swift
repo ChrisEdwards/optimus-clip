@@ -9,9 +9,9 @@ import KeyboardShortcuts
 /// - Persist user-configured shortcuts to UserDefaults
 /// - Display shortcuts in the UI via KeyboardShortcuts.Recorder
 ///
-/// ## Built-in Transformations
+/// ## Default Transformations
 /// These are pre-defined transformations that ship with Optimus Clip:
-/// - `cleanTerminalText`: Fast algorithmic cleanup (Cmd+Option+V default)
+/// - `cleanTerminalText`: LLM-based terminal text cleanup (Cmd+Option+V default)
 /// - `formatAsMarkdown`: LLM-based markdown formatting (Cmd+Option+S default)
 ///
 /// ## User-Created Transformations
@@ -21,14 +21,14 @@ import KeyboardShortcuts
 /// ```
 /// These are managed by TransformationConfig.shortcutName computed property.
 extension KeyboardShortcuts.Name {
-    // MARK: - Built-in Transformations
+    // MARK: - Default Transformations
 
-    /// Clean Terminal Text transformation: Fast algorithmic cleanup.
+    /// Clean Terminal Text transformation: LLM-based cleanup.
     ///
     /// Default shortcut: Cmd+Option+V
-    /// - Strips leading/trailing whitespace
-    /// - Smart unwraps hard-wrapped text
-    /// - No LLM call (instant execution)
+    /// - Removes leading indentation from terminal output
+    /// - Unwraps hard-wrapped lines
+    /// - Preserves code blocks and intentional formatting
     static let cleanTerminalText = Self(
         "cleanTerminalText",
         default: .init(.v, modifiers: [.command, .option])
@@ -37,9 +37,9 @@ extension KeyboardShortcuts.Name {
     /// Format As Markdown transformation: LLM-based formatting.
     ///
     /// Default shortcut: Cmd+Option+S
-    /// - Uses configured LLM provider
     /// - Converts text to clean markdown
-    /// - Slower but more intelligent
+    /// - Restores markdown structure from terminal output
+    /// - Rejoins wrapped lines and preserves code blocks
     static let formatAsMarkdown = Self(
         "formatAsMarkdown",
         default: .init(.s, modifiers: [.command, .option])

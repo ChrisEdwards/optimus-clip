@@ -30,24 +30,12 @@ struct TransformationRegistryTests {
 
     // MARK: - Initialization Tests
 
-    @Test("Registry auto-registers built-in transformations by default")
+    @Test("Registry starts empty")
     @MainActor
-    func autoRegistersBuiltIns() {
-        let registry = TransformationRegistry(registerBuiltIns: true)
-
-        // Check built-ins are registered
-        #expect(registry.exists("whitespace-strip"))
-        #expect(registry.exists("smart-unwrap"))
-        #expect(registry.exists("identity"))
-    }
-
-    @Test("Registry can be created without built-ins for testing")
-    @MainActor
-    func emptyRegistryForTesting() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+    func registryStartsEmpty() {
+        let registry = TransformationRegistry()
 
         #expect(registry.count == 0)
-        #expect(!registry.exists("whitespace-strip"))
     }
 
     // MARK: - Registration Tests
@@ -55,7 +43,7 @@ struct TransformationRegistryTests {
     @Test("Register transformation returns true on success")
     @MainActor
     func registerSuccess() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test-1", displayName: "Test 1")
 
         let result = registry.register(mock)
@@ -68,7 +56,7 @@ struct TransformationRegistryTests {
     @Test("Register with duplicate ID returns false")
     @MainActor
     func registerDuplicateID() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test", displayName: "Test 2")
 
@@ -87,14 +75,14 @@ struct TransformationRegistryTests {
     @Test("Register with category sets correct category")
     @MainActor
     func registerWithCategory() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let builtin = MockTransformation(id: "builtin-1", displayName: "Built-in")
         let user = MockTransformation(id: "user-1", displayName: "User")
 
-        registry.register(builtin, category: .builtin)
+        registry.register(builtin, category: .llm)
         registry.register(user, category: .userDefined)
 
-        let builtins = registry.transformations(in: .builtin)
+        let builtins = registry.transformations(in: .llm)
         let userDefined = registry.transformations(in: .userDefined)
 
         #expect(builtins.count == 1)
@@ -106,7 +94,7 @@ struct TransformationRegistryTests {
     @Test("Register with enabled state sets correct state")
     @MainActor
     func registerWithEnabledState() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let enabled = MockTransformation(id: "enabled", displayName: "Enabled")
         let disabled = MockTransformation(id: "disabled", displayName: "Disabled")
 
@@ -122,7 +110,7 @@ struct TransformationRegistryTests {
     @Test("Unregister returns true when found")
     @MainActor
     func unregisterSuccess() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
         registry.register(mock)
@@ -136,7 +124,7 @@ struct TransformationRegistryTests {
     @Test("Unregister returns false when not found")
     @MainActor
     func unregisterNotFound() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         let result = registry.unregister("nonexistent")
 
@@ -148,7 +136,7 @@ struct TransformationRegistryTests {
     @Test("Lookup returns transformation when enabled")
     @MainActor
     func lookupEnabled() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
         registry.register(mock, enabled: true)
@@ -162,7 +150,7 @@ struct TransformationRegistryTests {
     @Test("Lookup returns nil when disabled")
     @MainActor
     func lookupDisabled() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
         registry.register(mock, enabled: false)
@@ -175,7 +163,7 @@ struct TransformationRegistryTests {
     @Test("Lookup returns nil when not found")
     @MainActor
     func lookupNotFound() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         let result = registry.transformation(for: "nonexistent")
 
@@ -185,7 +173,7 @@ struct TransformationRegistryTests {
     @Test("LookupIgnoringEnabled returns transformation regardless of state")
     @MainActor
     func lookupIgnoringEnabled() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
         registry.register(mock, enabled: false)
@@ -201,7 +189,7 @@ struct TransformationRegistryTests {
     @Test("SetEnabled updates transformation state")
     @MainActor
     func setEnabled() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
         registry.register(mock, enabled: true)
@@ -217,7 +205,7 @@ struct TransformationRegistryTests {
     @Test("SetEnabled returns false for nonexistent ID")
     @MainActor
     func setEnabledNotFound() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         let result = registry.setEnabled(true, for: "nonexistent")
 
@@ -227,7 +215,7 @@ struct TransformationRegistryTests {
     @Test("IsEnabled returns false for nonexistent ID")
     @MainActor
     func isEnabledNotFound() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         #expect(registry.isEnabled("nonexistent") == false)
     }
@@ -235,7 +223,7 @@ struct TransformationRegistryTests {
     @Test("EnableAll enables all transformations")
     @MainActor
     func enableAll() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test 2")
 
@@ -252,7 +240,7 @@ struct TransformationRegistryTests {
     @Test("DisableAll disables all transformations")
     @MainActor
     func disableAll() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test 2")
 
@@ -271,7 +259,7 @@ struct TransformationRegistryTests {
     @Test("AllTransformations returns all registered transformations")
     @MainActor
     func allTransformations() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test 2")
 
@@ -286,7 +274,7 @@ struct TransformationRegistryTests {
     @Test("EnabledTransformations returns only enabled")
     @MainActor
     func enabledTransformations() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test 2")
 
@@ -302,7 +290,7 @@ struct TransformationRegistryTests {
     @Test("TransformationNames returns ID to displayName mapping")
     @MainActor
     func transformationNames() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test One")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test Two")
 
@@ -318,7 +306,7 @@ struct TransformationRegistryTests {
     @Test("AllIDs returns all registered IDs")
     @MainActor
     func allIDs() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock1 = MockTransformation(id: "test-1", displayName: "Test 1")
         let mock2 = MockTransformation(id: "test-2", displayName: "Test 2")
 
@@ -335,17 +323,17 @@ struct TransformationRegistryTests {
     @Test("Entry returns full registry entry")
     @MainActor
     func entry() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
         let mock = MockTransformation(id: "test", displayName: "Test")
 
-        registry.register(mock, category: .builtin, enabled: false)
+        registry.register(mock, category: .llm, enabled: false)
 
         let entry = registry.entry(for: "test")
 
         #expect(entry != nil)
         #expect(entry?.transformation.id == "test")
         #expect(entry?.isEnabled == false)
-        #expect(entry?.category == .builtin)
+        #expect(entry?.category == .llm)
     }
 
     // MARK: - Clear Tests
@@ -353,14 +341,18 @@ struct TransformationRegistryTests {
     @Test("Clear removes all registrations")
     @MainActor
     func clear() {
-        let registry = TransformationRegistry(registerBuiltIns: true)
+        let registry = TransformationRegistry()
 
-        #expect(registry.count > 0)
+        // Register some transformations first
+        registry.register(MockTransformation(id: "test-1", displayName: "Test 1"))
+        registry.register(MockTransformation(id: "test-2", displayName: "Test 2"))
+        #expect(registry.count == 2)
 
         registry.clear()
 
         #expect(registry.count == 0)
-        #expect(!registry.exists("whitespace-strip"))
+        #expect(!registry.exists("test-1"))
+        #expect(!registry.exists("test-2"))
     }
 
     // MARK: - Count Tests
@@ -368,7 +360,7 @@ struct TransformationRegistryTests {
     @Test("Count reflects number of registrations")
     @MainActor
     func count() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         #expect(registry.count == 0)
 
@@ -385,7 +377,7 @@ struct TransformationRegistryTests {
     @Test("EnabledCount reflects number of enabled registrations")
     @MainActor
     func enabledCount() {
-        let registry = TransformationRegistry(registerBuiltIns: false)
+        let registry = TransformationRegistry()
 
         registry.register(MockTransformation(id: "1", displayName: "1"), enabled: true)
         registry.register(MockTransformation(id: "2", displayName: "2"), enabled: false)
