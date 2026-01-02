@@ -8,10 +8,10 @@ public struct SmartUnwrapConfig: Sendable, Equatable {
     /// Tolerance for line length consistency (characters)
     public var lengthTolerance: Int
 
-    /// Lower bound of typical hard-wrap line lengths
+    /// Lower bound of typical hard-wrap line lengths (40 catches narrow terminals)
     public var wrapRangeLower: Int
 
-    /// Upper bound of typical hard-wrap line lengths
+    /// Upper bound of typical hard-wrap line lengths (85 covers most email/terminal widths)
     public var wrapRangeUpper: Int
 
     /// Minimum consistency ratio to trigger unwrap (0.0 - 1.0)
@@ -27,7 +27,7 @@ public struct SmartUnwrapConfig: Sendable, Equatable {
     public init(
         minConsecutiveLines: Int = 3,
         lengthTolerance: Int = 5,
-        wrapRangeLower: Int = 65,
+        wrapRangeLower: Int = 40,
         wrapRangeUpper: Int = 85,
         consistencyThreshold: Double = 0.7,
         preserveCodeBlocks: Bool = true,
