@@ -65,7 +65,6 @@ struct TransformationsTabView: View {
         var current = self.transformations
         let newTransform = TransformationConfig(
             name: "New Transformation",
-            type: .llm,
             isEnabled: true
         )
         current.append(newTransform)

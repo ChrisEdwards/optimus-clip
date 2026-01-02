@@ -16,7 +16,6 @@ struct ModelSelectorBindingTests {
     func selectingDefaultSetsNil() {
         var config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "gpt-4o",
@@ -38,7 +37,6 @@ struct ModelSelectorBindingTests {
     func selectingExplicitModelSetsModel() {
         var config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -60,7 +58,6 @@ struct ModelSelectorBindingTests {
     func customTypedModelBecomesPinned() {
         var config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -87,7 +84,6 @@ struct ModelSelectorBindingTests {
 
         let config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -110,7 +106,6 @@ struct ModelSelectorBindingTests {
     func explicitDisplaysAsIs() {
         let config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "gpt-4-turbo",
@@ -136,7 +131,6 @@ struct ModelSelectorBindingTests {
 
         let config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -168,7 +162,6 @@ struct ModelSelectorBindingTests {
 
         let config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -206,7 +199,6 @@ struct ModelSelectorBindingTests {
 
         var config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,
@@ -227,7 +219,6 @@ struct ModelSelectorBindingTests {
     func providerChangePreservesPinnedModel() {
         var config = TransformationConfig(
             name: "Test",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "gpt-4o",

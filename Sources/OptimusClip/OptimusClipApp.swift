@@ -213,17 +213,12 @@ private struct TransformationMenuItem: View {
             return
         }
 
-        switch self.transformation.type {
-        case .algorithmic:
-            flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
-
-        case .llm:
-            guard let pipeline = self.createLLMPipeline(for: self.transformation) else {
-                SoundManager.shared.playBeep()
-                return
-            }
-            flowCoordinator.pipeline = pipeline
+        // All transformations are now LLM-based
+        guard let pipeline = self.createLLMPipeline(for: self.transformation) else {
+            SoundManager.shared.playBeep()
+            return
         }
+        flowCoordinator.pipeline = pipeline
 
         _ = await flowCoordinator.handleHotkeyTrigger()
     }

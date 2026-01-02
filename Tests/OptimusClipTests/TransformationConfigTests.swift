@@ -4,84 +4,81 @@ import Testing
 
 /// Test suite for TransformationConfig model.
 ///
-/// Tests the isBuiltIn property, JSON encoding/decoding,
-/// and static factory properties for built-in transformations.
+/// Tests JSON encoding/decoding and static factory properties.
 @Suite("TransformationConfig Tests")
 struct TransformationConfigTests {
-    // MARK: - isBuiltIn Property Tests
+    // MARK: - Basic Properties Tests
 
-    @Test("isBuiltIn defaults to false")
-    func isBuiltInDefaultsFalse() {
+    @Test("TransformationConfig has correct default values")
+    func defaultValues() {
         let config = TransformationConfig(name: "Test")
-        #expect(config.isBuiltIn == false)
+
+        #expect(config.name == "Test")
+        #expect(config.isEnabled == true)
+        #expect(config.provider == nil)
+        #expect(config.model == nil)
+        #expect(config.systemPrompt == "")
     }
 
-    @Test("isBuiltIn can be set to true")
-    func isBuiltInCanBeTrue() {
-        let config = TransformationConfig(name: "Test", isBuiltIn: true)
-        #expect(config.isBuiltIn == true)
+    @Test("TransformationConfig can be created with all properties")
+    func fullInitialization() {
+        let config = TransformationConfig(
+            name: "Full Config",
+            isEnabled: false,
+            provider: "anthropic",
+            model: "claude-3-sonnet",
+            systemPrompt: "Test prompt"
+        )
+
+        #expect(config.name == "Full Config")
+        #expect(config.isEnabled == false)
+        #expect(config.provider == "anthropic")
+        #expect(config.model == "claude-3-sonnet")
+        #expect(config.systemPrompt == "Test prompt")
     }
 
     // MARK: - JSON Encoding/Decoding Tests
 
-    @Test("TransformationConfig encodes isBuiltIn")
-    func encodesIsBuiltIn() throws {
-        let config = TransformationConfig(name: "Test", isBuiltIn: true)
-        let data = try JSONEncoder().encode(config)
-        let json = try #require(String(data: data, encoding: .utf8))
+    @Test("TransformationConfig round-trips through JSON")
+    func jsonRoundTrip() throws {
+        let original = TransformationConfig(
+            name: "Test",
+            isEnabled: true,
+            provider: "openai",
+            model: "gpt-4",
+            systemPrompt: "Do something"
+        )
 
-        #expect(json.contains("\"isBuiltIn\":true"))
-    }
-
-    @Test("TransformationConfig decodes isBuiltIn true")
-    func decodesIsBuiltInTrue() throws {
-        let config = TransformationConfig(name: "Test", isBuiltIn: true)
-        let data = try JSONEncoder().encode(config)
+        let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(TransformationConfig.self, from: data)
 
-        #expect(decoded.isBuiltIn == true)
+        #expect(decoded.id == original.id)
+        #expect(decoded.name == original.name)
+        #expect(decoded.isEnabled == original.isEnabled)
+        #expect(decoded.provider == original.provider)
+        #expect(decoded.model == original.model)
+        #expect(decoded.systemPrompt == original.systemPrompt)
     }
 
-    @Test("TransformationConfig decodes isBuiltIn false")
-    func decodesIsBuiltInFalse() throws {
-        let config = TransformationConfig(name: "Test", isBuiltIn: false)
-        let data = try JSONEncoder().encode(config)
-        let decoded = try JSONDecoder().decode(TransformationConfig.self, from: data)
-
-        #expect(decoded.isBuiltIn == false)
-    }
-
-    @Test("Pre-update JSON without isBuiltIn decodes with default false")
-    func backwardCompatibility() throws {
-        // Simulate JSON from before isBuiltIn was added
-        let legacyJSON = """
+    @Test("TransformationConfig decodes with missing optional fields")
+    func decodingWithMissingOptionals() throws {
+        let json = """
         {
             "id": "00000000-0000-0000-0000-000000000099",
-            "name": "Legacy Transform",
-            "type": "llm",
+            "name": "Minimal Transform",
             "isEnabled": true,
             "systemPrompt": ""
         }
         """
-        let data = try #require(legacyJSON.data(using: .utf8))
+        let data = try #require(json.data(using: .utf8))
         let decoded = try JSONDecoder().decode(TransformationConfig.self, from: data)
 
-        #expect(decoded.name == "Legacy Transform")
-        #expect(decoded.isBuiltIn == false)
+        #expect(decoded.name == "Minimal Transform")
+        #expect(decoded.provider == nil)
+        #expect(decoded.model == nil)
     }
 
-    // MARK: - Static Factory Tests
-
-    @Test("builtInCleanTerminalText has correct properties")
-    func builtInCleanTerminalTextProperties() {
-        let builtIn = TransformationConfig.builtInCleanTerminalText
-
-        #expect(builtIn.name == "Clean Terminal Text")
-        #expect(builtIn.type == .algorithmic)
-        #expect(builtIn.isBuiltIn == true)
-        #expect(builtIn.isEnabled == true)
-        #expect(builtIn.id == TransformationConfig.cleanTerminalTextDefaultID)
-    }
+    // MARK: - Stable UUID Tests
 
     @Test("cleanTerminalTextDefaultID is stable UUID")
     func cleanTerminalTextDefaultIDIsStable() throws {
@@ -89,78 +86,77 @@ struct TransformationConfigTests {
         #expect(TransformationConfig.cleanTerminalTextDefaultID == expectedUUID)
     }
 
-    @Test("defaultTransformations contains built-in as first item")
-    func defaultTransformationsContainsBuiltIn() {
-        let defaults = TransformationConfig.defaultTransformations
-
-        #expect(defaults.count >= 1)
-        #expect(defaults[0].isBuiltIn == true)
-        #expect(defaults[0].id == TransformationConfig.cleanTerminalTextDefaultID)
+    @Test("formatAsMarkdownDefaultID is stable UUID")
+    func formatAsMarkdownDefaultIDIsStable() throws {
+        let expectedUUID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+        #expect(TransformationConfig.formatAsMarkdownDefaultID == expectedUUID)
     }
 
-    @Test("defaultTransformations Format As Markdown is not built-in")
-    func formatAsMarkdownNotBuiltIn() {
-        let defaults = TransformationConfig.defaultTransformations
-        let formatAsMarkdown = defaults.first { $0.name == "Format As Markdown" }
+    // MARK: - Default Transformations Tests
 
+    @Test("defaultTransformations contains Clean Terminal Text")
+    func defaultTransformationsContainsCleanTerminalText() {
+        let defaults = TransformationConfig.defaultTransformations
+
+        let cleanTerminal = defaults.first { $0.id == TransformationConfig.cleanTerminalTextDefaultID }
+        #expect(cleanTerminal != nil)
+        #expect(cleanTerminal?.name == "Clean Terminal Text")
+        #expect(cleanTerminal?.provider == "anthropic")
+        #expect(cleanTerminal?.systemPrompt.isEmpty == false)
+    }
+
+    @Test("defaultTransformations contains Format As Markdown")
+    func defaultTransformationsContainsFormatAsMarkdown() {
+        let defaults = TransformationConfig.defaultTransformations
+
+        let formatAsMarkdown = defaults.first { $0.id == TransformationConfig.formatAsMarkdownDefaultID }
         #expect(formatAsMarkdown != nil)
-        #expect(formatAsMarkdown?.isBuiltIn == false)
+        #expect(formatAsMarkdown?.name == "Format As Markdown")
+        #expect(formatAsMarkdown?.provider == "anthropic")
+        #expect(formatAsMarkdown?.systemPrompt.isEmpty == false)
     }
 
-    // MARK: - Migration Logic Tests
+    @Test("Clean Terminal Text has prompt for LLM processing")
+    func cleanTerminalTextHasLLMPrompt() {
+        let defaults = TransformationConfig.defaultTransformations
+        let cleanTerminal = defaults.first { $0.id == TransformationConfig.cleanTerminalTextDefaultID }
 
-    @Test("Migration adds built-in when missing from array")
-    func migrationAddsBuiltInWhenMissing() throws {
-        // Simulate user who deleted Clean Terminal Text before update
-        let stored: [TransformationConfig] = [
-            TransformationConfig(name: "My Custom Transform", type: .llm)
-        ]
-
-        let data = try JSONEncoder().encode(stored)
-        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
-
-        let builtInID = TransformationConfig.cleanTerminalTextDefaultID
-        #expect(migrated.count == 2)
-        #expect(migrated.first?.id == builtInID)
-        #expect(migrated.first?.isBuiltIn == true)
+        #expect(cleanTerminal?.systemPrompt.contains("terminal") == true)
+        #expect(cleanTerminal?.systemPrompt.contains("whitespace") == true)
     }
 
-    @Test("Migration sets isBuiltIn flag on existing Clean Terminal Text")
-    func migrationSetsIsBuiltInFlag() throws {
-        // Simulate existing data without isBuiltIn flag
-        let stored: [TransformationConfig] = [
+    // MARK: - Persistence Tests
+
+    @Test("decodeStoredTransformations returns defaults when data is nil")
+    func decodesDefaultsWhenNil() throws {
+        let decoded = try TransformationConfig.decodeStoredTransformations(from: nil)
+
+        #expect(decoded.isEmpty == false)
+        #expect(decoded.first?.id == TransformationConfig.cleanTerminalTextDefaultID)
+    }
+
+    @Test("decodeStoredTransformations returns defaults when data is empty")
+    func decodesDefaultsWhenEmpty() throws {
+        let decoded = try TransformationConfig.decodeStoredTransformations(from: Data())
+
+        #expect(decoded.isEmpty == false)
+        #expect(decoded.first?.id == TransformationConfig.cleanTerminalTextDefaultID)
+    }
+
+    @Test("decodeStoredTransformations decodes valid stored data")
+    func decodesStoredData() throws {
+        let stored = [
             TransformationConfig(
-                id: TransformationConfig.cleanTerminalTextDefaultID,
-                name: "Clean Terminal Text",
-                type: .algorithmic,
-                isBuiltIn: false // Pre-update data
+                name: "Custom Transform",
+                provider: "openai",
+                systemPrompt: "Custom prompt"
             )
         ]
-
         let data = try JSONEncoder().encode(stored)
-        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
 
-        #expect(migrated.count == 1)
-        #expect(migrated.first?.isBuiltIn == true)
-    }
+        let decoded = try TransformationConfig.decodeStoredTransformations(from: data)
 
-    @Test("Migration preserves user customizations on built-in")
-    func migrationPreservesCustomizations() throws {
-        // User may have changed hotkey or disabled - migration should preserve those
-        let stored: [TransformationConfig] = [
-            TransformationConfig(
-                id: TransformationConfig.cleanTerminalTextDefaultID,
-                name: "Clean Terminal Text",
-                type: .algorithmic,
-                isEnabled: false, // User disabled it
-                isBuiltIn: false
-            )
-        ]
-
-        let data = try JSONEncoder().encode(stored)
-        let migrated = try TransformationConfig.decodeStoredTransformations(from: data)
-
-        #expect(migrated.first?.isBuiltIn == true)
-        #expect(migrated.first?.isEnabled == false) // Preserved
+        #expect(decoded.count == 1)
+        #expect(decoded.first?.name == "Custom Transform")
     }
 }

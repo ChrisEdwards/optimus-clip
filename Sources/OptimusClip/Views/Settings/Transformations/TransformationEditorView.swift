@@ -8,8 +8,7 @@ import SwiftUI
 ///
 /// Provides form fields for:
 /// - Basic settings: name, hotkey, enabled toggle
-/// - Type selection: algorithmic or LLM
-/// - LLM settings: provider, model, system prompt (conditional)
+/// - LLM settings: provider, model, system prompt
 /// - Test mode with input/output preview
 struct TransformationEditorView: View {
     @Binding var transformation: TransformationConfig
@@ -44,13 +43,8 @@ struct TransformationEditorView: View {
         Form {
             // Basic settings
             Section("Basic Settings") {
-                // Name: read-only for built-ins, editable for user transformations
-                if self.transformation.isBuiltIn {
-                    LabeledContent("Name", value: self.transformation.name)
-                } else {
-                    TextField("Name", text: self.$transformation.name)
-                        .textFieldStyle(.roundedBorder)
-                }
+                TextField("Name", text: self.$transformation.name)
+                    .textFieldStyle(.roundedBorder)
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -77,22 +71,20 @@ struct TransformationEditorView: View {
                 Toggle("Enabled", isOn: self.$transformation.isEnabled)
             }
 
-            // LLM Configuration: shown for user transformations (always LLM), hidden for built-ins
-            if !self.transformation.isBuiltIn {
-                Section("LLM Configuration") {
-                    Picker("Provider", selection: self.providerBinding) {
-                        Text("Select Provider").tag("")
-                        ForEach(LLMProvider.allCases) { provider in
-                            Text(provider.displayName).tag(provider.rawValue)
-                        }
+            // LLM Configuration: shown for all transformations
+            Section("LLM Configuration") {
+                Picker("Provider", selection: self.providerBinding) {
+                    Text("Select Provider").tag("")
+                    ForEach(LLMProvider.allCases) { provider in
+                        Text(provider.displayName).tag(provider.rawValue)
                     }
-                    // Model picker (only shown when provider is selected)
-                    if !self.providerBinding.wrappedValue.isEmpty {
-                        self.modelPickerSection
-                    }
-
-                    self.systemPromptEditorSection
                 }
+                // Model picker (only shown when provider is selected)
+                if !self.providerBinding.wrappedValue.isEmpty {
+                    self.modelPickerSection
+                }
+
+                self.systemPromptEditorSection
             }
 
             TransformationTestSection(transformation: self.transformation)
@@ -292,7 +284,6 @@ struct TransformationEditorView: View {
     TransformationEditorView(
         transformation: .constant(TransformationConfig(
             name: "Test Transform",
-            type: .llm,
             isEnabled: true,
             provider: "anthropic",
             systemPrompt: "Clean up the text."

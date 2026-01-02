@@ -24,7 +24,6 @@ struct HotkeyManagerCacheTests {
         var transformation = TransformationConfig(
             id: id,
             name: "Test LLM Transform",
-            type: .llm,
             isEnabled: true,
             provider: "anthropic",
             systemPrompt: "Original prompt"
@@ -56,7 +55,6 @@ struct HotkeyManagerCacheTests {
         let transformation = TransformationConfig(
             id: UUID(),
             name: "Never Registered",
-            type: .llm,
             isEnabled: true
         )
 
@@ -73,7 +71,6 @@ struct HotkeyManagerCacheTests {
         var transformation = TransformationConfig(
             id: id,
             name: "Multi-Update Test",
-            type: .llm,
             isEnabled: true,
             provider: "anthropic",
             systemPrompt: "Version 1"
@@ -109,7 +106,6 @@ struct HotkeyManagerCacheTests {
         var transform1 = TransformationConfig(
             id: id1,
             name: "Transform 1",
-            type: .llm,
             isEnabled: true,
             systemPrompt: "Prompt 1"
         )
@@ -117,7 +113,6 @@ struct HotkeyManagerCacheTests {
         var transform2 = TransformationConfig(
             id: id2,
             name: "Transform 2",
-            type: .llm,
             isEnabled: true,
             systemPrompt: "Prompt 2"
         )
@@ -149,7 +144,6 @@ struct HotkeyManagerCacheTests {
         var transformation = TransformationConfig(
             id: id,
             name: "Initially Disabled",
-            type: .llm,
             isEnabled: false, // Disabled - won't be registered
             systemPrompt: "Original"
         )
@@ -182,7 +176,6 @@ struct HotkeyManagerCacheTests {
         let storedTransformation = TransformationConfig(
             id: TransformationConfig.formatAsMarkdownDefaultID,
             name: "Format As Markdown",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "gpt-4o",
@@ -226,7 +219,6 @@ struct HotkeyManagerCacheTests {
 
         let transformation = TransformationConfig(
             name: "LLM Transform",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: nil,

@@ -28,7 +28,6 @@ struct TransformationPersistenceTests {
         let stored = TransformationConfig(
             id: TransformationConfig.formatAsMarkdownDefaultID,
             name: "Format As Markdown",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "gpt-4o",

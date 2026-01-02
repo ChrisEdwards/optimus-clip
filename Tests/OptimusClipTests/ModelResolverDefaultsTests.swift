@@ -25,7 +25,6 @@ struct ModelResolverDefaultsTests {
         let config = TransformationConfig(
             id: UUID(),
             name: "Test",
-            type: .llm,
             provider: LLMProviderKind.openRouter.rawValue,
             model: nil
         )

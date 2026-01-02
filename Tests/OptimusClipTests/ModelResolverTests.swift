@@ -12,7 +12,6 @@ struct ModelResolverTests {
 
         var transformation = TransformationConfig(
             name: "LLM Override",
-            type: .llm,
             isEnabled: true,
             provider: "openai",
             model: "custom-model",
@@ -40,7 +39,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "LLM No Override",
-            type: .llm,
             isEnabled: true,
             provider: "anthropic",
             model: nil,
@@ -63,7 +61,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "LLM Fallback",
-            type: .llm,
             isEnabled: true,
             provider: "openrouter",
             model: nil,
@@ -83,7 +80,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "Bad Provider",
-            type: .llm,
             isEnabled: true,
             provider: "azure",
             model: nil,
@@ -101,7 +97,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "Upper Provider",
-            type: .llm,
             isEnabled: true,
             provider: "OpenAI",
             model: nil,
@@ -121,7 +116,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "AWS Alias",
-            type: .llm,
             isEnabled: true,
             provider: "aws",
             model: nil,
@@ -141,7 +135,6 @@ struct ModelResolverTests {
 
         let transformation = TransformationConfig(
             name: "Spaced Provider",
-            type: .llm,
             isEnabled: true,
             provider: "  openrouter  ",
             model: nil,

@@ -4,20 +4,36 @@ import Testing
 
 @Suite("TransformationTester")
 struct TransformationTesterTests {
-    @MainActor
-    @Test("Algorithmic test uses Clean Terminal Text pipeline")
-    func algorithmicTestMatchesPipeline() async throws {
-        let input = "line one wraps\nline two continues\nline three keeps going"
-
-        let tester = TransformationTester()
-        let tested = try await tester.runTest(
-            transformation: TransformationConfig.builtInCleanTerminalText,
-            input: input
+    @Test("runTest throws noProviderConfigured when no provider is set")
+    func noProviderThrows() async throws {
+        let transform = TransformationConfig(
+            name: "Test",
+            isEnabled: true,
+            provider: nil,
+            systemPrompt: "Test"
         )
 
-        let pipelineResult = try await TransformationPipeline.cleanTerminalText().execute(input)
+        let tester = TransformationTester()
 
-        #expect(tested == pipelineResult.output)
+        await #expect(throws: TransformationTestError.noProviderConfigured) {
+            _ = try await tester.runTest(transformation: transform, input: "hello")
+        }
+    }
+
+    @Test("runTest throws noProviderConfigured when provider is empty string")
+    func emptyProviderThrows() async throws {
+        let transform = TransformationConfig(
+            name: "Test",
+            isEnabled: true,
+            provider: "",
+            systemPrompt: "Test"
+        )
+
+        let tester = TransformationTester()
+
+        await #expect(throws: TransformationTestError.noProviderConfigured) {
+            _ = try await tester.runTest(transformation: transform, input: "hello")
+        }
     }
 
     @Test("provider display names use shared normalization")

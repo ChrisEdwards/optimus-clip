@@ -1,43 +1,13 @@
 import Foundation
 import KeyboardShortcuts
 
-// MARK: - Transformation Types
-
-/// Type of transformation processing.
-///
-/// - `algorithmic`: Fast, rule-based transformations (whitespace cleanup, etc.)
-/// - `llm`: LLM-based intelligent transformations using configured provider
-enum TransformationType: String, Codable, CaseIterable, Identifiable, Sendable {
-    case algorithmic
-    case llm
-
-    var id: String { self.rawValue }
-
-    /// User-friendly display name for the transformation type.
-    var displayName: String {
-        switch self {
-        case .algorithmic: "Quick"
-        case .llm: "LLM"
-        }
-    }
-
-    /// Detailed description for UI picker.
-    var detailedName: String {
-        switch self {
-        case .algorithmic: "Algorithmic (Fast)"
-        case .llm: "LLM-Based (Smart)"
-        }
-    }
-}
-
 // MARK: - Transformation Configuration
 
 /// Configuration for a user-defined clipboard transformation.
 ///
 /// Stores all settings needed to execute a transformation:
 /// - Basic info (name, enabled state)
-/// - Transformation type (algorithmic vs LLM)
-/// - LLM-specific settings (provider, model, prompt)
+/// - LLM settings (provider, model, prompt)
 ///
 /// ## Persistence
 /// TransformationConfig is Codable for JSON serialization to @AppStorage.
@@ -55,60 +25,44 @@ struct TransformationConfig: Identifiable, Hashable, Sendable {
     /// User-provided name for the transformation.
     var name: String
 
-    /// Type of processing (algorithmic or LLM).
-    var type: TransformationType
-
     /// Whether this transformation is active and responds to hotkeys.
     var isEnabled: Bool
 
-    /// LLM provider to use (only relevant when type == .llm).
+    /// LLM provider to use.
     var provider: String?
 
-    /// Model name to use (only relevant when type == .llm).
+    /// Model name to use.
     var model: String?
 
     /// System prompt for LLM transformations.
     var systemPrompt: String
-
-    /// Whether this is a built-in transformation that cannot be deleted.
-    /// Built-ins have restricted editing (hotkey and enabled only).
-    var isBuiltIn: Bool
 
     /// Creates a new transformation configuration with defaults.
     ///
     /// - Parameters:
     ///   - id: Unique identifier (defaults to new UUID).
     ///   - name: Display name for the transformation.
-    ///   - type: Processing type (defaults to algorithmic).
     ///   - isEnabled: Whether the transformation is active (defaults to true).
     ///   - provider: LLM provider name (optional).
     ///   - model: LLM model name (optional).
     ///   - systemPrompt: System prompt for LLM processing (defaults to empty).
-    ///   - isBuiltIn: Whether this is a permanent built-in transformation (defaults to false).
     init(
         id: UUID = UUID(),
         name: String,
-        type: TransformationType = .algorithmic,
         isEnabled: Bool = true,
         provider: String? = nil,
         model: String? = nil,
-        systemPrompt: String = "",
-        isBuiltIn: Bool = false
+        systemPrompt: String = ""
     ) {
         self.id = id
         self.name = name
-        self.type = type
         self.isEnabled = isEnabled
         self.provider = provider
         self.model = model
         self.systemPrompt = systemPrompt
-        self.isBuiltIn = isBuiltIn
     }
 
     /// KeyboardShortcuts.Name for this transformation's hotkey.
-    ///
-    /// This is a computed property that creates the Name on demand.
-    /// The KeyboardShortcuts package stores the actual shortcut value.
     var shortcutName: KeyboardShortcuts.Name {
         KeyboardShortcuts.Name.transformation(self.id)
     }
@@ -118,20 +72,17 @@ struct TransformationConfig: Identifiable, Hashable, Sendable {
 
 extension TransformationConfig: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, type, isEnabled, provider, model, systemPrompt, isBuiltIn
+        case id, name, isEnabled, provider, model, systemPrompt
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decode(UUID.self, forKey: .id)
         self.name = try container.decode(String.self, forKey: .name)
-        self.type = try container.decode(TransformationType.self, forKey: .type)
         self.isEnabled = try container.decode(Bool.self, forKey: .isEnabled)
         self.provider = try container.decodeIfPresent(String.self, forKey: .provider)
         self.model = try container.decodeIfPresent(String.self, forKey: .model)
-        self.systemPrompt = try container.decode(String.self, forKey: .systemPrompt)
-        // Backward compatibility: default to false if key missing (pre-update data)
-        self.isBuiltIn = try container.decodeIfPresent(Bool.self, forKey: .isBuiltIn) ?? false
+        self.systemPrompt = try container.decodeIfPresent(String.self, forKey: .systemPrompt) ?? ""
     }
 }
 
@@ -141,39 +92,44 @@ extension TransformationConfig {
     // MARK: - Stable UUIDs for Defaults
 
     /// Stable UUID for the default "Clean Terminal Text" transformation.
-    ///
-    /// Using a fixed UUID ensures the KeyboardShortcuts storage persists
-    /// across app restarts, since shortcuts are keyed by transformation UUID.
-    /// Public for migration checks.
     static let cleanTerminalTextDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000001") ?? UUID()
 
     /// Stable UUID for the default "Format As Markdown" transformation.
     static let formatAsMarkdownDefaultID = UUID(uuidString: "00000000-0000-0000-0000-000000000002") ?? UUID()
 
-    /// The built-in "Clean Terminal Text" transformation.
-    ///
-    /// This transformation is permanent and cannot be deleted by users.
-    /// Used for migration when ensuring the built-in exists.
-    static let builtInCleanTerminalText = TransformationConfig(
-        id: cleanTerminalTextDefaultID,
-        name: "Clean Terminal Text",
-        type: .algorithmic,
-        isEnabled: true,
-        systemPrompt: "",
-        isBuiltIn: true
-    )
-
     /// Default transformations provided on first launch.
     ///
     /// These serve as examples and can be modified or deleted by the user.
     /// Uses stable UUIDs so recorded shortcuts persist across app restarts.
-    /// Note: "Clean Terminal Text" is a permanent built-in (isBuiltIn: true).
     static let defaultTransformations: [TransformationConfig] = [
-        builtInCleanTerminalText,
+        TransformationConfig(
+            id: cleanTerminalTextDefaultID,
+            name: "Clean Terminal Text",
+            isEnabled: true,
+            provider: "anthropic",
+            model: nil,
+            systemPrompt: """
+            Clean up terminal-copied text by removing leading indentation and unwrapping hard-wrapped lines.
+
+            This text was copied from a terminal application where:
+            - Lines have consistent leading whitespace (usually 2-4 spaces) added by the terminal
+            - Long lines are hard-wrapped at a fixed column width (typically 50-80 characters)
+            - Wrapped continuation lines may or may not have the same leading indent
+
+            Your task:
+            1. Detect and remove consistent leading whitespace from all lines
+            2. Identify hard-wrapped lines (lines that end mid-sentence and continue on the next line)
+            3. Join hard-wrapped lines back into proper paragraphs
+            4. Preserve intentional line breaks (empty lines, list items, code blocks)
+            5. Preserve code blocks and their original indentation structure
+
+            CRITICAL: Return ONLY the cleaned text. No explanations, no summaries, no \
+            commentary. Just the transformed text verbatim.
+            """
+        ),
         TransformationConfig(
             id: formatAsMarkdownDefaultID,
             name: "Format As Markdown",
-            type: .llm,
             isEnabled: false,
             provider: "anthropic",
             model: nil,
@@ -229,36 +185,12 @@ extension TransformationConfig {
     /// Decodes stored transformations from persisted data.
     ///
     /// - Parameter data: Raw Data from @AppStorage.
-    /// - Returns: Decoded transformations.
+    /// - Returns: Decoded transformations, or defaults if data is empty/missing.
     /// - Throws: Decoding errors when data exists but cannot be parsed.
     static func decodeStoredTransformations(from data: Data?) throws -> [TransformationConfig] {
-        guard let data, data.isEmpty == false else {
-            return self.migrateTransformations(self.defaultTransformations)
+        guard let data, !data.isEmpty else {
+            return self.defaultTransformations
         }
-
-        let decoded = try JSONDecoder().decode([TransformationConfig].self, from: data)
-        return Self.migrateTransformations(decoded)
-    }
-
-    /// Applies migration fixes to a decoded transformations array.
-    ///
-    /// - Ensures the built-in Clean Terminal Text transformation exists.
-    /// - Upgrades the built-in to set `isBuiltIn` when older data omitted it.
-    ///
-    /// This keeps hotkey caches and the Settings UI aligned without silently
-    /// falling back to defaults when decoding fails elsewhere.
-    private static func migrateTransformations(_ transformations: [TransformationConfig]) -> [TransformationConfig] {
-        var migrated = transformations
-        let builtInID = Self.cleanTerminalTextDefaultID
-
-        if let index = migrated.firstIndex(where: { $0.id == builtInID }) {
-            if migrated[index].isBuiltIn == false {
-                migrated[index].isBuiltIn = true
-            }
-        } else {
-            migrated.insert(Self.builtInCleanTerminalText, at: 0)
-        }
-
-        return migrated
+        return try JSONDecoder().decode([TransformationConfig].self, from: data)
     }
 }

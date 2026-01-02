@@ -27,21 +27,10 @@ struct TransformationTester {
     /// - Returns: The transformed output.
     /// - Throws: `TransformationTestError` if the test fails.
     func runTest(transformation: TransformationConfig, input: String) async throws -> String {
-        switch transformation.type {
-        case .algorithmic:
-            try await self.runAlgorithmicTest(input: input)
-        case .llm:
-            try await self.runLLMTest(transformation: transformation, input: input)
-        }
+        try await self.runLLMTest(transformation: transformation, input: input)
     }
 
     // MARK: - Private
-
-    private func runAlgorithmicTest(input: String) async throws -> String {
-        let pipeline = TransformationPipeline.cleanTerminalText()
-        let result = try await pipeline.execute(input)
-        return result.output
-    }
 
     private func runLLMTest(transformation: TransformationConfig, input: String) async throws -> String {
         guard let providerName = transformation.provider, !providerName.isEmpty else {
@@ -84,7 +73,7 @@ struct TransformationTester {
 // MARK: - Errors
 
 /// Errors that can occur during transformation testing.
-enum TransformationTestError: LocalizedError {
+enum TransformationTestError: LocalizedError, Equatable {
     case noProviderConfigured
     case providerNotConfigured(String)
 

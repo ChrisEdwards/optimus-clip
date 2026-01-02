@@ -103,67 +103,40 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - User Transformation Registration
 
-    /// Registers a hotkey handler for a user-created transformation and enables it when active.
+    /// Registers a hotkey handler for a user-created transformation and enables it.
     func register(transformation: TransformationConfig) {
         guard transformation.isEnabled else { return }
-
         let shortcutName = transformation.shortcutName
-
-        // Store transformation for lookup when hotkey fires
         self.transformationsByShortcut[shortcutName] = transformation
-
-        // Register handler with KeyboardShortcuts. Look up the latest
-        // transformation configuration at trigger time so edits in
-        // Settings apply immediately without restarting the app.
         KeyboardShortcuts.onKeyUp(for: shortcutName) { [weak self] in
             guard let self else { return }
             Task { @MainActor in
-                guard let latest = self.transformationsByShortcut[shortcutName] else {
-                    return
-                }
+                guard let latest = self.transformationsByShortcut[shortcutName] else { return }
                 await self.triggerTransformation(latest)
             }
         }
-
-        // Track registration
         self.registeredShortcuts.insert(shortcutName)
-
-        // Enable shortcut if global listening is active, otherwise keep suspended
         self.activateShortcutBasedOnGlobalState(shortcutName)
     }
 
-    /// Unregisters a hotkey handler for a transformation.
-    ///
-    /// - Parameter transformation: The transformation configuration to unregister.
-    ///
-    /// Call this before deleting a transformation to ensure no dangling handlers.
+    /// Unregisters a hotkey handler for a transformation (call before deleting).
     func unregister(transformation: TransformationConfig) {
         let shortcutName = transformation.shortcutName
-
-        // Disable and reset the shortcut
         self.disableShortcut(shortcutName)
         KeyboardShortcuts.reset(shortcutName)
-
-        // Remove from tracking
         self.registeredShortcuts.remove(shortcutName)
         self.globallySuspendedShortcuts.remove(shortcutName)
         self.transformationsByShortcut.removeValue(forKey: shortcutName)
     }
 
-    /// Registers all transformations from a list.
-    ///
-    /// - Parameter transformations: Array of transformation configurations.
-    ///
-    /// Call this at app startup after loading saved transformations.
+    /// Registers all transformations from a list (call at app startup).
     func registerAll(transformations: [TransformationConfig]) {
         for transformation in transformations {
             self.register(transformation: transformation)
         }
     }
 
-    /// Unregisters all user transformations.
-    ///
-    /// This clears all registered user shortcuts but preserves built-in shortcuts.
+    /// Unregisters all user transformations (preserves built-in shortcuts).
     func unregisterAllUserTransformations() {
         for (shortcutName, _) in self.transformationsByShortcut {
             self.disableShortcut(shortcutName)
@@ -176,14 +149,7 @@ final class HotkeyManager: ObservableObject {
 
     // MARK: - Enable/Disable
 
-    /// Sets the enabled state for a transformation's hotkey.
-    ///
-    /// - Parameters:
-    ///   - enabled: Whether to enable or disable the hotkey.
-    ///   - transformation: The transformation whose hotkey to update.
-    ///
-    /// This only affects the hotkey registration, not the transformation config itself.
-    /// The UI should update the config's `isEnabled` property separately.
+    /// Sets the enabled state for a transformation's hotkey (UI should update config separately).
     func setEnabled(_ enabled: Bool, for transformation: TransformationConfig) {
         let shortcutName = transformation.shortcutName
 
@@ -247,8 +213,16 @@ final class HotkeyManager: ObservableObject {
         // Configure pipeline based on which hotkey was pressed
         switch name {
         case .cleanTerminalText:
-            logger.debug("Using Clean Terminal Text pipeline")
-            self.flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
+            logger.debug("Creating Clean Terminal Text LLM pipeline")
+            guard let pipeline = self.createCleanTerminalTextPipeline() else {
+                logger
+                    .error(
+                        "Clean Terminal Text failed: No LLM provider configured. Add API key in Settings > Providers."
+                    )
+                SoundManager.shared.playBeep()
+                return
+            }
+            self.flowCoordinator.pipeline = pipeline
         case .formatAsMarkdown:
             logger.debug("Creating Format As Markdown LLM pipeline")
             guard let pipeline = self.createFormatAsMarkdownPipeline() else {
@@ -270,16 +244,32 @@ final class HotkeyManager: ObservableObject {
         _ = await self.flowCoordinator.handleHotkeyTrigger()
     }
 
+    /// Builds the Clean Terminal Text pipeline using stored settings or a provider fallback.
+    func createCleanTerminalTextPipeline() -> TransformationPipeline? {
+        self.createBuiltInPipeline(
+            id: TransformationConfig.cleanTerminalTextDefaultID,
+            pipelineId: "clean-terminal-text-builtin"
+        )
+    }
+
     /// Builds the Format As Markdown pipeline using stored settings or a provider fallback.
     func createFormatAsMarkdownPipeline() -> TransformationPipeline? {
+        self.createBuiltInPipeline(
+            id: TransformationConfig.formatAsMarkdownDefaultID,
+            pipelineId: "format-as-markdown-builtin"
+        )
+    }
+
+    /// Creates a pipeline for a built-in transformation with fallback support.
+    private func createBuiltInPipeline(id: UUID, pipelineId: String) -> TransformationPipeline? {
         let factory = self.llmFactory
-        guard let stored = self.formatAsMarkdownTransformation() else {
-            logger.warning("No stored Format As Markdown transformation found")
+        guard let stored = self.transformationFromStorage(id: id) else {
+            logger.warning("No stored transformation found for \(pipelineId)")
             return nil
         }
 
         if let pipeline = self.createLLMPipeline(for: stored) {
-            logger.info("Using stored Format As Markdown transformation")
+            logger.info("Using stored transformation for \(pipelineId)")
             return pipeline
         }
 
@@ -290,46 +280,45 @@ final class HotkeyManager: ObservableObject {
             return nil
         }
 
-        logger.info("Using fallback provider: \(provider.rawValue) with stored Format As Markdown prompt")
+        logger.info("Using fallback provider: \(provider.rawValue) for \(pipelineId)")
         let model = stored.model ?? Self.defaultModel(for: provider)
-        return self.makeFormatAsMarkdownPipeline(
+        return self.makeLLMPipeline(
             client: client,
             model: model,
             systemPrompt: stored.systemPrompt,
-            displayName: stored.name
+            displayName: stored.name,
+            id: pipelineId
         )
     }
 
-    /// Creates an LLM pipeline for Format As Markdown with the given client and model.
-    private func makeFormatAsMarkdownPipeline(
+    /// Creates an LLM pipeline with the given client and configuration.
+    private func makeLLMPipeline(
         client: any LLMProviderClient,
         model: String,
         systemPrompt: String,
-        displayName: String
+        displayName: String,
+        id: String
     ) -> TransformationPipeline {
-        let timeoutSeconds = self.userDefaults.double(forKey: SettingsKey.transformationTimeout)
-        let effectiveTimeout = timeoutSeconds > 0 ? timeoutSeconds : DefaultSettings.transformationTimeout
-
+        let timeout = self.currentTimeout()
         let transformation = LLMTransformation(
-            id: "format-as-markdown-builtin",
+            id: id,
             displayName: displayName,
             providerClient: client,
             model: model,
             systemPrompt: systemPrompt,
-            timeoutSeconds: effectiveTimeout
+            timeoutSeconds: timeout
         )
         return TransformationPipeline.single(transformation, config: .llm)
     }
 
     /// Loads the stored Format As Markdown transformation (if available).
-    ///
-    /// Uses persisted transformations so user edits (prompt/provider/model) are honored.
     func formatAsMarkdownTransformation() -> TransformationConfig? {
-        guard let transformations = self.loadPersistedTransformations() else {
-            return nil
-        }
+        self.transformationFromStorage(id: TransformationConfig.formatAsMarkdownDefaultID)
+    }
 
-        return transformations.first { $0.id == TransformationConfig.formatAsMarkdownDefaultID }
+    /// Loads the stored Clean Terminal Text transformation (if available).
+    func cleanTerminalTextTransformation() -> TransformationConfig? {
+        self.transformationFromStorage(id: TransformationConfig.cleanTerminalTextDefaultID)
     }
 
     private func transformationFromStorage(id: UUID) -> TransformationConfig? {
@@ -376,29 +365,21 @@ final class HotkeyManager: ObservableObject {
             return false
         }
 
+        // Always get the latest persisted config for LLM transformations
         var effectiveTransformation = transformation
-        if transformation.type == .llm,
-           let persisted = self.transformationFromStorage(id: transformation.id) {
+        if let persisted = self.transformationFromStorage(id: transformation.id) {
             effectiveTransformation = persisted
             // Keep cache aligned with latest persisted data
             self.transformationsByShortcut[transformation.shortcutName] = persisted
         }
 
-        // Configure pipeline based on transformation type
-        switch effectiveTransformation.type {
-        case .algorithmic:
-            // Algorithmic transformations use the cleanTerminalText pipeline
-            self.flowCoordinator.pipeline = TransformationPipeline.cleanTerminalText()
-
-        case .llm:
-            // LLM transformations require provider configuration
-            guard let pipeline = self.createLLMPipeline(for: effectiveTransformation) else {
-                // LLM not configured - beep and abort
-                SoundManager.shared.playBeep()
-                return false
-            }
-            self.flowCoordinator.pipeline = pipeline
+        // Configure pipeline - all transformations are now LLM-based
+        guard let pipeline = self.createLLMPipeline(for: effectiveTransformation) else {
+            // LLM not configured - beep and abort
+            SoundManager.shared.playBeep()
+            return false
         }
+        self.flowCoordinator.pipeline = pipeline
 
         // Execute the transformation flow
         return await self.flowCoordinator.handleHotkeyTrigger()
