@@ -33,17 +33,6 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
         return self.buildLLMResponse(chatResponse, startTime: startTime)
     }
 
-    // MARK: - Prompt Construction
-
-    private static let genericSystemPrompt = """
-    You are a clipboard transformation assistant. \
-    Transform the user's clipboard content according to their instructions.
-    """
-
-    private static func buildUserMessage(_ request: LLMRequest) -> String {
-        "\(request.systemPrompt)\n----\n\(request.text)"
-    }
-
     // MARK: - Helpers
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
@@ -58,8 +47,8 @@ public struct OllamaProviderClient: LLMProviderClient, Sendable {
         let body = OllamaChatRequest(
             model: request.model,
             messages: [
-                OllamaMessage(role: "system", content: Self.genericSystemPrompt),
-                OllamaMessage(role: "user", content: Self.buildUserMessage(request))
+                OllamaMessage(role: "system", content: LLMRequest.genericSystemPrompt),
+                OllamaMessage(role: "user", content: request.formattedUserMessage)
             ],
             stream: false,
             options: OllamaOptions(temperature: request.temperature)

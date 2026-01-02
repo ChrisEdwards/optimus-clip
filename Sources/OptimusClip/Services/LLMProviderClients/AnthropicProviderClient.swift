@@ -38,17 +38,6 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
         return self.buildLLMResponse(messagesResponse, startTime: startTime)
     }
 
-    // MARK: - Prompt Construction
-
-    private static let genericSystemPrompt = """
-    You are a clipboard transformation assistant. \
-    Transform the user's clipboard content according to their instructions.
-    """
-
-    private static func buildUserMessage(_ request: LLMRequest) -> String {
-        "\(request.systemPrompt)\n----\n\(request.text)"
-    }
-
     // MARK: - Helpers
 
     private func buildRequest(_ request: LLMRequest) throws -> URLRequest {
@@ -68,8 +57,8 @@ public struct AnthropicProviderClient: LLMProviderClient, Sendable {
         let body = AnthropicMessagesRequest(
             model: request.model,
             maxTokens: 12000,
-            system: Self.genericSystemPrompt,
-            messages: [AnthropicMessage(role: "user", content: Self.buildUserMessage(request))],
+            system: LLMRequest.genericSystemPrompt,
+            messages: [AnthropicMessage(role: "user", content: request.formattedUserMessage)],
             temperature: request.temperature
         )
         #if DEBUG

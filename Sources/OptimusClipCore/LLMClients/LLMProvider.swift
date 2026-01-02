@@ -99,6 +99,26 @@ public struct LLMRequest: Sendable {
         self.requestID = requestID
         self.timeout = timeout
     }
+
+    // MARK: - Message Formatting
+
+    /// Generic system prompt used by all providers.
+    public static let genericSystemPrompt = """
+    You are a clipboard transformation assistant. \
+    Transform the user's clipboard content according to their instructions.
+    """
+
+    /// Builds the user message with instructions and content clearly separated.
+    /// Content is wrapped in XML tags to prevent the LLM from interpreting it as instructions.
+    public var formattedUserMessage: String {
+        """
+        \(self.systemPrompt)
+
+        <clipboard_content>
+        \(self.text)
+        </clipboard_content>
+        """
+    }
 }
 
 public struct LLMResponse: Sendable {

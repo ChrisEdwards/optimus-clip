@@ -47,17 +47,6 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         return self.buildLLMResponse(converseResponse, model: request.model, startTime: startTime)
     }
 
-    // MARK: - Prompt Construction
-
-    private static let genericSystemPrompt = """
-    You are a clipboard transformation assistant. \
-    Transform the user's clipboard content according to their instructions.
-    """
-
-    private static func buildUserMessage(_ request: LLMRequest) -> String {
-        "\(request.systemPrompt)\n----\n\(request.text)"
-    }
-
     // MARK: - Helpers
 
     func makeSignedRequest(_ request: LLMRequest) throws -> URLRequest {
@@ -78,10 +67,10 @@ public struct AWSBedrockProviderClient: LLMProviderClient, Sendable {
         urlRequest.timeoutInterval = request.timeout * 1.5
 
         let body = BedrockConverseRequest(
-            system: [BedrockSystemContent(text: Self.genericSystemPrompt)],
+            system: [BedrockSystemContent(text: LLMRequest.genericSystemPrompt)],
             messages: [BedrockMessage(
                 role: "user",
-                content: [BedrockContent(text: Self.buildUserMessage(request))]
+                content: [BedrockContent(text: request.formattedUserMessage)]
             )],
             inferenceConfig: BedrockInferenceConfig(
                 temperature: request.temperature,
