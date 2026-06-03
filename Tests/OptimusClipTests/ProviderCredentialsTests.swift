@@ -133,6 +133,22 @@ struct ProviderCredentialsResolverTests {
         }
     }
 
+    @Test("Falls back to default Ollama port when not stored in UserDefaults")
+    func ollamaPortFallbackWhenNotStored() throws {
+        let context = self.makeContext()
+        defer { context.defaults.removePersistentDomain(forName: context.suiteName) }
+
+        let resolver = ProviderCredentialsResolver(keyStore: context.store, userDefaults: context.defaults)
+        let credentials = try resolver.credentials(for: .ollama)
+
+        switch credentials {
+        case let .ollama(endpoint):
+            #expect(endpoint.absoluteString == "http://localhost:11434")
+        default:
+            Issue.record("Expected Ollama endpoint with default host and port")
+        }
+    }
+
     @Test("Ignores invalid Ollama port values")
     func ignoresInvalidOllamaPort() throws {
         let context = self.makeContext()

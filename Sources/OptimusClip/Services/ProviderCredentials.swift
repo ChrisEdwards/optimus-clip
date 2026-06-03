@@ -86,13 +86,14 @@ struct ProviderCredentialsResolver {
         let host = self.cleanedSetting(self.userDefaults.string(forKey: SettingsKey.ollamaHost))
             ?? DefaultSettings.ollamaHost
         let port = self.cleanedSetting(self.userDefaults.string(forKey: SettingsKey.ollamaPort))
+            ?? DefaultSettings.ollamaPort
 
         let base = host.hasPrefix("http") ? host : "http://\(host)"
         if let components = URLComponents(string: base), components.port != nil {
             return components.url
         }
 
-        let combined: String = if let port, Self.isValidPort(port) {
+        let combined: String = if Self.isValidPort(port) {
             "\(base):\(port)"
         } else {
             base
