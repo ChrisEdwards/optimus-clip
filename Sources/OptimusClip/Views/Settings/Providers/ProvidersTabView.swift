@@ -65,7 +65,7 @@ struct ProvidersTabView: View {
     private var isOpenAIConfigured: Bool { !self.openAIKey.isEmpty }
     private var isAnthropicConfigured: Bool { !self.anthropicKey.isEmpty }
     private var isOpenRouterConfigured: Bool { !self.openRouterKey.isEmpty }
-    private var isOllamaConfigured: Bool { !self.ollamaHost.isEmpty && self.ollamaHost != "http://localhost" }
+    private var isOllamaConfigured: Bool { !self.ollamaHost.isEmpty && !self.ollamaModelId.isEmpty }
     private var isBedrockConfigured: Bool {
         let method = AWSAuthMethod(rawValue: self.awsAuthMethod) ?? .profile
         return switch method {
